@@ -1,0 +1,587 @@
+# System Architecture - Current State
+
+**Last Updated:** January 7, 2026
+**Project Phase:** Phase 1 - Core Infrastructure (Iteration 1 Complete)
+
+---
+
+## 🎯 Project Overview
+
+Full-stack web application for paper trading multiple NBA strategies on Kalshi prediction markets. Integrates live Kalshi orderbook data with comprehensive NBA game data to execute automated trading strategies and track simulated performance.
+
+---
+
+## 📐 High-Level Architecture
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                     Frontend (Next.js)                       │
+│              [Status: Not Started - Phase 4]                 │
+│  • Dashboard for monitoring trades and performance           │
+│  • Real-time data updates via WebSocket                      │
+│  • Strategy configuration UI                                 │
+└──────────────────────┬──────────────────────────────────────┘
+                       │ WebSocket + REST API
+┌──────────────────────┴──────────────────────────────────────┐
+│                Backend (Python FastAPI)                      │
+│           [Status: Skeleton Complete - Iteration 1]          │
+│                                                              │
+│  ┌────────────────────────────────────────────────────────┐ │
+│  │            Strategy Execution Engine                    │ │
+│  │  • Sharp Line Detection                                │ │
+│  │  • Momentum Scalping                                   │ │
+│  │  • EV Multi-Source                                     │ │
+│  │  • Mean Reversion                                      │ │
+│  │  • Correlation Play                                    │ │
+│  └────────────────────────────────────────────────────────┘ │
+│                                                              │
+│  ┌────────────────────────────────────────────────────────┐ │
+│  │  Data Aggregator  │  Order Execution Engine            │ │
+│  │  • Kalshi WS      │  • Simulated fills at best bid/ask │ │
+│  │  • NBA live data  │  • Position tracking               │ │
+│  │  • Betting odds   │  • Real-time P&L calculation       │ │
+│  └────────────────────────────────────────────────────────┘ │
+└──────────────────────┬──────────────────────────────────────┘
+                       │
+┌──────────────────────┴──────────────────────────────────────┐
+│              External APIs & Database                        │
+│  • Kalshi WebSocket (orderbook streaming)                   │
+│  • balldontlie.io REST API (NBA data & odds)                │
+│  • Supabase PostgreSQL (data storage)                       │
+└─────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## ✅ What's Implemented
+
+### Documentation (Complete)
+**Location:** Root directory  
+**Status:** ✅ Complete
+
+- ✅ `kalshi_nba_paper_trading_prd.md` - Full product requirements (68 pages)
+- ✅ `kalshi_openapi.yaml` - Kalshi API specification
+- ✅ `sports_openapi.yaml` - balldontlie.io API specification
+- ✅ `CLAUDE.md` - Development instructions for Claude Code
+- ✅ `PROGRESS.md` - Iteration tracking
+- ✅ `ARCHITECTURE.md` - This file
+
+**Key Specifications:**
+- 11 database tables fully defined
+- 5 trading strategies with complete logic
+- All API endpoints specified
+- Frontend UI mockups included
+
+---
+
+### Backend Infrastructure (Iteration 1)
+**Location:** `backend/` directory
+**Status:** ✅ Complete
+
+**What's Implemented:**
+- ✅ Complete project structure with proper organization
+- ✅ FastAPI application with CORS middleware
+- ✅ Supabase PostgreSQL schema (11 tables with indexes)
+- ✅ Configuration management with Pydantic Settings
+- ✅ Environment variables system (.env.example provided)
+- ✅ Database migration files
+- ✅ Structured logging (JSON format support)
+- ✅ Health check endpoints (live, ready, health)
+- ✅ Comprehensive Pydantic models for all entities
+- ✅ Ticker parser utility with unit tests
+- ✅ Skeleton files for all integrations and strategies
+
+**How to Use:**
+
+```python
+# Import settings
+from backend.config.settings import settings
+
+# Access configuration
+print(settings.kalshi_api_key)
+print(settings.environment)
+
+# Get Supabase client
+from backend.config.supabase import get_supabase_client
+client = get_supabase_client()
+
+# Parse Kalshi ticker
+from backend.utils.ticker_parser import extract_game_info_from_kalshi_ticker
+game_info = extract_game_info_from_kalshi_ticker("kxnbagame-26jan06dalsac")
+# Returns: {'date': '2026-01-06', 'away_team_abbr': 'DAL', 'home_team_abbr': 'SAC'}
+
+# Run FastAPI application
+# uvicorn backend.main:app --reload
+```
+
+**Database Tables:**
+1. ✅ `games` - Game tracking (UUID, tickers, teams, dates)
+2. ✅ `kalshi_markets` - Market metadata (ticker, type, strike)
+3. ✅ `orderbook_snapshots` - Real-time bid/ask data
+4. ✅ `nba_live_data` - Live game statistics (JSONB)
+5. ✅ `betting_odds` - Sportsbook odds aggregation
+6. ✅ `strategies` - Strategy configs (JSONB parameters)
+7. ✅ `simulated_orders` - Order history
+8. ✅ `positions` - Position tracking with P&L
+9. ✅ `strategy_performance` - Performance metrics
+10. ✅ `risk_limits` - Risk management rules
+11. ✅ `system_logs` - Application logs
+
+**Testing:**
+- ✅ 17 unit tests for ticker parser
+- ✅ Configuration tests for settings
+- ✅ All files compile without syntax errors
+
+---
+
+## 🚧 In Progress
+
+*Ready to start Iteration 2 - Kalshi API Integration*
+
+---
+
+## ❌ Not Yet Implemented
+
+### Backend Infrastructure
+**Status:** ✅ Complete (Iteration 1)
+
+### API Integrations
+**Priority:** High  
+**Next Up:** Iteration 2-3
+
+- ❌ Kalshi REST API client
+- ❌ Kalshi WebSocket connection
+- ❌ Orderbook processing
+- ❌ balldontlie.io REST API client
+- ❌ NBA live data polling
+- ❌ Betting odds fetching
+- ❌ Auto game matching logic
+
+### Trading Engine
+**Priority:** High  
+**Next Up:** Iteration 4-8
+
+- ❌ Strategy base class
+- ❌ Sharp Line Detection strategy
+- ❌ Momentum Scalping strategy
+- ❌ EV Multi-Source strategy
+- ❌ Mean Reversion strategy
+- ❌ Correlation Play strategy
+- ❌ Order execution simulator
+- ❌ Position manager
+- ❌ P&L calculator
+- ❌ Risk management system
+
+### Frontend
+**Priority:** Medium  
+**Next Up:** Phase 4 (Week 4)
+
+- ❌ Next.js application
+- ❌ Dashboard UI
+- ❌ Strategy control cards
+- ❌ Live market data table
+- ❌ Position tracking table
+- ❌ Performance charts
+- ❌ Trade log viewer
+- ❌ WebSocket client
+
+### Testing & Deployment
+**Priority:** Low  
+**Next Up:** Phase 5
+
+- ❌ Unit tests
+- ❌ Integration tests
+- ❌ Error handling
+- ❌ Deployment scripts
+
+---
+
+## 📁 Planned Project Structure
+
+```
+kalshi_nba_trading/
+├── backend/                         [NOT CREATED]
+│   ├── main.py                      # FastAPI entry point
+│   ├── config/
+│   │   ├── settings.py              # Environment config
+│   │   └── supabase.py              # DB connection
+│   ├── database/
+│   │   ├── schema.sql               # Database schema
+│   │   └── migrations/
+│   ├── models/                      # Pydantic models
+│   │   ├── game.py
+│   │   ├── market.py
+│   │   ├── strategy.py
+│   │   └── order.py
+│   ├── api/                         # REST endpoints
+│   │   ├── routes/
+│   │   │   ├── games.py
+│   │   │   ├── strategies.py
+│   │   │   └── trading.py
+│   │   └── websocket.py             # WS server
+│   ├── integrations/                # External APIs
+│   │   ├── kalshi/
+│   │   │   ├── client.py
+│   │   │   └── websocket.py
+│   │   └── balldontlie/
+│   │       └── client.py
+│   ├── strategies/                  # Trading strategies
+│   │   ├── base.py
+│   │   ├── sharp_line.py
+│   │   ├── momentum.py
+│   │   ├── ev_multi.py
+│   │   ├── mean_reversion.py
+│   │   └── correlation.py
+│   ├── engine/                      # Execution engine
+│   │   ├── executor.py
+│   │   ├── position_manager.py
+│   │   └── pnl_calculator.py
+│   └── utils/
+│       ├── logger.py
+│       └── ticker_parser.py
+├── frontend/                        [NOT CREATED]
+│   └── [Next.js app structure]
+├── tests/                           [NOT CREATED]
+├── docs/                            ✅ [COMPLETE]
+│   ├── kalshi_nba_paper_trading_prd.md
+│   ├── kalshi_openapi.yaml
+│   └── sports_openapi.yaml
+├── .env                             [NOT CREATED]
+├── .env.example                     [NOT CREATED]
+├── requirements.txt                 [NOT CREATED]
+├── README.md                        [NOT CREATED]
+├── CLAUDE.md                        ✅ [COMPLETE]
+├── PROGRESS.md                      ✅ [COMPLETE]
+└── ARCHITECTURE.md                  ✅ [COMPLETE - This file]
+```
+
+---
+
+## 🗄️ Database Schema (Planned)
+
+### Tables to Implement
+
+1. **games** - Core game tracking
+   - Stores game metadata, team info, status
+   - Links Kalshi event to NBA game
+
+2. **kalshi_markets** - Kalshi market metadata
+   - Tracks all markets for a game (moneyline, spreads, totals)
+   - References games table
+
+3. **orderbook_snapshots** - Real-time market data
+   - Stores bid/ask prices from Kalshi WebSocket
+   - High-volume table (5-second intervals)
+
+4. **nba_live_data** - Live NBA game stats
+   - Stores box scores, scoring pace, period info
+   - Updated every 5 seconds during live games
+
+5. **betting_odds** - Sportsbook odds
+   - Aggregates odds from multiple books
+   - Used for strategy calculations
+
+6. **strategies** - Strategy configurations
+   - Stores strategy settings and parameters
+   - Enable/disable status
+
+7. **simulated_orders** - Order history
+   - All simulated trades executed
+   - Links to strategy and position
+
+8. **positions** - Open/closed positions
+   - Tracks current holdings
+   - Real-time P&L calculation
+
+9. **strategy_performance** - Performance metrics
+   - Win rate, Sharpe ratio, total P&L
+   - Time-series data
+
+10. **risk_limits** - Risk management rules
+    - Position size limits
+    - Drawdown limits
+
+11. **system_logs** - Application logs
+    - Structured logging for debugging
+
+**All tables include:**
+- Proper indexes for performance
+- Foreign key relationships
+- Timestamps (created_at, updated_at)
+
+---
+
+## 🔌 API Integration Patterns
+
+### Kalshi Integration (Planned)
+
+**Flow for Loading a Game:**
+```python
+# User enters: "kxnbagame-26jan06dalsac"
+
+# Step 1: Extract event ticker
+market = await kalshi_client.get_market("kxnbagame-26jan06dalsac")
+event_ticker = market.event_ticker  # "NBAGAME-26JAN06-DALSAC"
+
+# Step 2: Get all related markets
+event = await kalshi_client.get_event(
+    event_ticker, 
+    with_nested_markets=True
+)
+
+# Step 3: Categorize markets
+for market in event.markets:
+    if "spread" in market.ticker.lower():
+        # It's a spread market
+    elif "total" in market.ticker.lower():
+        # It's a total market
+    # etc...
+```
+
+**WebSocket for Real-Time Data:**
+```python
+async def connect_kalshi_ws():
+    async with websockets.connect(KALSHI_WS_URL) as ws:
+        await ws.send({
+            "cmd": "subscribe",
+            "channels": ["orderbook_delta"],
+            "market_tickers": [list_of_tickers]
+        })
+        
+        async for message in ws:
+            await process_orderbook_update(message)
+```
+
+### balldontlie.io Integration (Planned)
+
+**Auto-Matching Games:**
+```python
+def extract_game_info(ticker: str):
+    # "kxnbagame-26jan06dalsac" →
+    # date: 2026-01-06, away: DAL, home: SAC
+    pass
+
+async def find_nba_game(date, away, home):
+    games = await bdl_client.get(
+        "/nba/v1/games",
+        params={"dates[]": [date]}
+    )
+    # Match teams and return game_id
+```
+
+**Live Data Polling:**
+```python
+while game_is_live:
+    # Every 5 seconds
+    box_scores = await bdl_client.get("/nba/v1/box_scores/live")
+    odds = await bdl_client.get("/nba/v2/odds", params={...})
+    
+    await store_data(box_scores, odds)
+    await evaluate_strategies()
+```
+
+---
+
+## 🎮 Trading Strategy Architecture (Planned)
+
+### Base Strategy Class
+```python
+class BaseStrategy:
+    def __init__(self, config: dict):
+        self.config = config
+        self.is_enabled = False
+    
+    async def evaluate(
+        self, 
+        market_data: dict, 
+        nba_data: dict,
+        odds_data: dict
+    ) -> Optional[TradeSignal]:
+        # Implement in subclass
+        pass
+    
+    async def execute_trade(self, signal: TradeSignal):
+        # Common execution logic
+        pass
+```
+
+### Strategy 1: Sharp Line Detection
+**Logic:** Compare Kalshi price to aggregated sportsbook odds
+**Trigger:** Divergence > 5% (configurable)
+**Example:** Kalshi @ 45¢, Sportsbooks @ 60% implied → BUY
+
+### Strategy 2: Momentum Scalping
+**Logic:** Detect scoring runs, exploit price lag
+**Trigger:** 8+ point run in 2 minutes, price hasn't adjusted
+**Example:** Team goes on 12-0 run → BUY spread
+
+### Strategy 3: EV Multi-Source
+**Logic:** Aggregate multiple sportsbooks, find +EV
+**Trigger:** Expected value > 3%
+**Example:** True prob 55%, Kalshi @ 48¢ → BUY
+
+### Strategy 4: Mean Reversion
+**Logic:** When scoring pace deviates significantly
+**Trigger:** Projected total > 15% above opening
+**Example:** Pace for 280, opened 220 → BET UNDER
+
+### Strategy 5: Correlation Play
+**Logic:** Mispriced spread relationships
+**Trigger:** P(spread -4.5) < P(spread -6.5)
+**Example:** Adjacent spreads inverted → Arbitrage
+
+---
+
+## 🔧 Technology Decisions
+
+### Why Supabase?
+- Real-time subscriptions built-in
+- PostgreSQL with excellent Python support
+- Row Level Security for data protection
+- Easy hosting and management
+
+### Why FastAPI?
+- Native async/await support (critical for WebSockets)
+- Automatic OpenAPI documentation
+- Type validation with Pydantic
+- High performance
+
+### Why Next.js?
+- Server-side rendering for SEO
+- App Router for modern patterns
+- Great DX with hot reload
+- Easy deployment to Vercel
+
+### Why WebSockets?
+- Real-time orderbook updates (<1s latency)
+- Push updates to frontend
+- More efficient than polling
+
+---
+
+## 🎯 Key Implementation Challenges
+
+### Challenge 1: WebSocket Reliability
+**Issue:** Kalshi WebSocket may disconnect
+**Solution:** Exponential backoff reconnection logic
+
+### Challenge 2: Data Synchronization
+**Issue:** Multiple data sources (Kalshi, NBA, odds)
+**Solution:** Central aggregator with timestamp alignment
+
+### Challenge 3: Real-Time P&L
+**Issue:** Need to calculate P&L as prices change
+**Solution:** In-memory price cache + 5-second update loop
+
+### Challenge 4: Strategy Coordination
+**Issue:** Multiple strategies trading same markets
+**Solution:** Event-driven architecture, strategies subscribe to data updates
+
+---
+
+## 📊 Performance Requirements
+
+### Data Update Frequencies
+- Kalshi orderbook: Real-time via WebSocket
+- NBA box scores: Every 5 seconds (live games)
+- Betting odds: Every 10 seconds
+- P&L calculation: Every 5 seconds
+- Frontend updates: Real-time via WebSocket
+
+### Latency Targets
+- Order execution: <500ms
+- Strategy evaluation: <200ms per strategy
+- WebSocket message processing: <100ms
+- Frontend data display: <1s from source update
+
+---
+
+## 🔐 Security & Configuration
+
+### Environment Variables Required
+```bash
+KALSHI_API_KEY=xxx
+KALSHI_API_SECRET=xxx
+BALLDONTLIE_API_KEY=xxx
+SUPABASE_URL=xxx
+SUPABASE_SERVICE_KEY=xxx
+REDIS_URL=redis://localhost:6379
+```
+
+### Security Measures
+- API keys in environment variables only
+- Supabase Row Level Security enabled
+- Rate limiting on API endpoints
+- Input validation on all user data
+
+---
+
+## 📈 Monitoring & Observability (Planned)
+
+### Metrics to Track
+- WebSocket connection uptime
+- API response times
+- Strategy execution frequency
+- Trade success rate
+- Database query performance
+
+### Logging Strategy
+- Structured JSON logs
+- Log levels: DEBUG, INFO, WARNING, ERROR, CRITICAL
+- Centralized logging (future: send to Datadog/LogStash)
+
+---
+
+## 🐛 Known Issues
+
+*No issues yet - project not started!*
+
+---
+
+## 💡 Architectural Decisions Log
+
+### Decision 1: Supabase for Database
+**Date:** [Today]  
+**Reason:** Need real-time capabilities, PostgreSQL features, easy setup  
+**Alternative Considered:** Self-hosted PostgreSQL  
+**Outcome:** Going with Supabase for speed
+
+### Decision 2: FastAPI over Flask/Django
+**Date:** [Today]  
+**Reason:** Native async support critical for WebSocket performance  
+**Alternative Considered:** Flask + gevent, Django Channels  
+**Outcome:** FastAPI chosen for best async story
+
+### Decision 3: Simulated Execution at Best Bid/Ask
+**Date:** [Today]  
+**Reason:** Simplicity, reasonable approximation  
+**Alternative Considered:** Limit orders with fill simulation  
+**Outcome:** Start simple, can add complexity later
+
+---
+
+## 🚀 Next Steps
+
+### Immediate (Iteration 1):
+1. Create Python backend structure
+2. Implement Supabase schema
+3. Setup FastAPI skeleton
+4. Configure environment variables
+
+### Short-term (Iterations 2-5):
+1. Build Kalshi integration
+2. Build balldontlie.io integration
+3. Implement trading strategies
+4. Build execution engine
+
+### Medium-term (Phase 4):
+1. Create Next.js frontend
+2. Build dashboard UI
+3. Integrate WebSocket client
+
+---
+
+*This document will be updated after each iteration to reflect the current system state.*
+
+**Last Updated:** [Today's Date]  
+**Next Update:** After Iteration 1 completes
