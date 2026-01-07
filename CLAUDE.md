@@ -13,15 +13,65 @@ Building a full-stack Kalshi NBA paper trading application. This system monitors
 ---
 
 ## Your Task This Session
-**Initialize the project structure and create Supabase database schema.**
+**Build Kalshi API Integration (REST + WebSocket) AND fix ticker parser bug from Iteration 1**
 
 Specifically:
-1. Create Python backend project structure with proper organization
-2. Implement complete Supabase schema from PRD Section 4.1
-3. Create migration files
-4. Setup configuration management (environment variables)
-5. Create basic FastAPI application skeleton
-6. Add requirements.txt with all dependencies
+1. **FIX TICKER PARSER BUG (HIGH PRIORITY):**
+   - Fix `backend/utils/ticker_parser.py`
+   - The function `extract_game_info_from_kalshi_ticker()` has a date parsing bug
+   - Current: Parses '26jan06' as DDmmmYY (2006-01-26) ❌
+   - Correct: Should parse as YYmmmDD (2026-01-06) ✅
+   - Update the regex/parsing logic to correctly interpret the format
+   - Verify all 17 unit tests pass after fix
+
+2. **KALSHI REST API CLIENT:**
+   - Implement complete REST client in `backend/integrations/kalshi/client.py`
+   - Authentication with API key/secret
+   - Market discovery methods (get_market, get_event, discover_game_markets)
+   - Orderbook fetching
+   - Error handling and retry logic
+
+3. **KALSHI WEBSOCKET CLIENT:**
+   - Implement WebSocket client in `backend/integrations/kalshi/websocket.py`
+   - Subscribe/unsubscribe to markets
+   - Async message processing
+   - Reconnection logic with exponential backoff
+   - Orderbook delta handling
+
+4. **MARKET DISCOVERY FLOW:**
+   - Implement complete flow: seed ticker → all related markets
+   - Categorize markets (moneyline, spreads, totals)
+   - Store in database
+
+5. **DATABASE INTEGRATION:**
+   - Create helper functions for storing Kalshi data
+   - Store games, markets, orderbook snapshots
+
+6. **API ENDPOINTS:**
+   - Implement POST /api/games/load
+   - Implement GET /api/games/{game_id}
+   - Update other game endpoints from skeleton to functional
+
+7. **TESTING:**
+   - Ensure ticker parser tests all pass (17/17)
+   - Add integration tests for Kalshi client
+   - Create manual test script for WebSocket
+
+---
+
+## Known Issues from Previous Iterations
+
+### Iteration 1: Ticker Parser Date Bug (MUST FIX IN THIS ITERATION)
+**Location:** `backend/utils/ticker_parser.py`
+**Function:** `extract_game_info_from_kalshi_ticker()`
+**Issue:** Incorrectly parses Kalshi ticker dates
+- Input: "kxnbagame-26jan06dalsac"
+- Current output: `{'date': '2006-01-26', ...}` ❌
+- Expected output: `{'date': '2026-01-06', ...}` ✅
+
+**Root Cause:** Parser interprets format as DDmmmYY instead of YYmmmDD
+**Fix:** Update the date parsing regex to correctly parse year (26) before day (06)
+**Validation:** All 17 unit tests in `tests/test_ticker_parser.py` must pass
 
 ---
 

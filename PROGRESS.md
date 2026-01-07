@@ -32,7 +32,7 @@
 ### Iteration 1 - Backend Foundation & Database Setup
 **Date:** January 7, 2026
 **Task:** Initialize backend structure and implement complete database schema
-**Status:** ✅ Complete
+**Status:** ✅ Complete (with 1 known bug to fix in Iteration 2)
 
 **Files Created:**
 - `backend/main.py` - FastAPI application entry point
@@ -91,11 +91,21 @@
 - ✅ Skeleton files for future implementations
 - ✅ Complete documentation (README, API docs)
 
-**Testing:**
-- 17 unit tests written for ticker parser
-- Configuration tests for settings
-- All Python files compile without syntax errors
-- Pytest can discover all tests successfully
+**Testing Results:**
+- ✅ FastAPI starts successfully on http://localhost:8000
+- ✅ Health endpoints respond correctly
+- ✅ Swagger UI accessible at /docs
+- ✅ Supabase connection established successfully
+- ✅ All 11 database tables accessible
+- ✅ 15 of 17 unit tests pass
+- ⚠️ 2 tests fail due to ticker parser date format bug
+
+**Dependencies Fixed During Testing:**
+- Updated supabase from 2.10.0 to 2.27.1
+- Updated httpx from 0.24.1 to 0.28.1
+- Updated websockets from 12.0 to 15.0.1
+- Updated postgrest from 0.13.0 to 2.27.1
+- requirements.txt now has all working versions
 
 **Notes:**
 - FastAPI application is ready to run (requires installing dependencies)
@@ -173,7 +183,27 @@
 
 ## 🐛 Known Issues
 
-*No issues yet - project just started!*
+### Ticker Parser Date Format Bug (Iteration 1)
+**Issue:** The `extract_game_info_from_kalshi_ticker()` function incorrectly parses dates.
+- **Current behavior:** Parses '26jan06' as 2006-01-26 (DDmmmYY format)
+- **Expected behavior:** Should parse as 2026-01-06 (YYmmmDD format)
+- **Impact:** 2 of 17 unit tests failing
+- **Status:** ⚠️ To be fixed in Iteration 2
+- **Location:** `backend/utils/ticker_parser.py`
+
+### Dependency Version Conflicts (Resolved)
+**Issue:** Initial requirements.txt had incompatible package versions
+- httpx version conflicts with supabase dependencies
+- websockets version too old (12.0 vs required 13.0+)
+- postgrest version too old (0.13.0 vs required 2.27.0+)
+
+**Resolution:** ✅ Fixed - Updated requirements.txt with working versions:
+- supabase==2.27.1
+- httpx==0.28.1
+- websockets==15.0.1
+- postgrest==2.27.1
+
+**Status:** ✅ Resolved during testing
 
 ---
 
