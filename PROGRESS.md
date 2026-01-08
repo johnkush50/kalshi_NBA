@@ -296,17 +296,95 @@
 
 ---
 
+### Iteration 5 - Sharp Line Detection Strategy
+**Date:** January 8, 2026
+**Task:** Implement first trading strategy with strategy engine
+**Status:** ✅ Complete
+
+**Files Created:**
+- `backend/strategies/sharp_line.py` - Sharp Line Detection strategy implementation
+- `backend/engine/strategy_engine.py` - Strategy execution engine with background evaluation
+- `scripts/test_strategy.py` - CLI test script for strategy testing
+
+**Files Modified:**
+- `backend/strategies/base.py` - Complete rewrite with abstract base class
+- `backend/models/order.py` - Added `strategy_name` field to TradeSignal
+- `backend/api/routes/strategies.py` - Complete rewrite with functional endpoints
+- `backend/main.py` - Added strategy engine startup/shutdown lifecycle hooks
+
+**Features Implemented:**
+
+1. **Base Strategy Class** (`backend/strategies/base.py`)
+   - Abstract base class with `evaluate()` and `get_default_config()` methods
+   - Cooldown tracking per market to prevent over-trading
+   - Signal history recording (last 100 signals)
+   - Configuration management with defaults and overrides
+   - Enable/disable functionality
+
+2. **Sharp Line Detection Strategy** (`backend/strategies/sharp_line.py`)
+   - Compares Kalshi prices to sportsbook consensus odds
+   - Generates BUY YES signals when Kalshi is undervalued
+   - Generates BUY NO signals when Kalshi is overvalued
+   - Configurable parameters:
+     - `threshold_percent`: Min divergence to trigger (default: 5%)
+     - `min_sample_sportsbooks`: Min sources for valid consensus (default: 3)
+     - `position_size`: Contracts per trade (default: 10)
+     - `cooldown_minutes`: Time between trades on same market (default: 5)
+     - `min_ev_percent`: Minimum expected value to trade (default: 2%)
+     - `market_types`: Which market types to trade (default: ["moneyline"])
+     - `use_kelly_sizing`: Use Kelly criterion for position sizing (default: false)
+     - `kelly_fraction`: Fraction of Kelly to use (default: 0.25)
+
+3. **Strategy Execution Engine** (`backend/engine/strategy_engine.py`)
+   - Manages multiple strategy instances
+   - Periodic evaluation loop (configurable interval)
+   - Signal handlers for routing signals to execution
+   - Strategy registry for loading strategies by type
+   - Full lifecycle management (start/stop)
+
+4. **Strategy API Endpoints** (`backend/api/routes/strategies.py`)
+   - `GET /api/strategies/types` - List available strategy types
+   - `GET /api/strategies/` - List loaded strategies
+   - `POST /api/strategies/load` - Load a new strategy instance
+   - `DELETE /api/strategies/{id}` - Unload a strategy
+   - `GET /api/strategies/{id}` - Get strategy details
+   - `POST /api/strategies/{id}/enable` - Enable a strategy
+   - `POST /api/strategies/{id}/disable` - Disable a strategy
+   - `PUT /api/strategies/{id}/config` - Update configuration
+   - `POST /api/strategies/{id}/evaluate` - Manual evaluation on a game
+   - `POST /api/strategies/evaluate-all` - Evaluate all enabled strategies
+   - `GET /api/strategies/{id}/signals` - Get recent signals
+
+5. **Test Script** (`scripts/test_strategy.py`)
+   - `--list-types` - List available strategy types
+   - `--load-and-test --game-id UUID` - Load strategy and test on a game
+   - `--evaluate` - Run all enabled strategies
+   - `--show-state --game-id UUID` - Debug game state
+
+**Testing:**
+- ✅ Strategy engine starts with application ("✓ Strategy engine started")
+- ✅ API endpoints respond correctly
+- ✅ Strategy can be loaded, enabled, and evaluated
+- ✅ Signal generation logic implemented
+
+**Notes:**
+- Signals are generated but NOT automatically executed (execution engine coming later)
+- Strategy won't generate signals without consensus odds data
+- Lower threshold_percent and min_sample_sportsbooks for testing
+
+---
+
 ## ⏳ Up Next
 
-### Iteration 5 - Trading Strategies (Sharp Line Detection)
-**Planned Task:** Implement first trading strategy
+### Iteration 6 - Order Execution Engine
+**Planned Task:** Implement simulated order execution
 
 **TODO:**
-- [ ] Strategy base class with common interface
-- [ ] Sharp Line Detection strategy implementation
-- [ ] Strategy configuration from database
-- [ ] Integration with DataAggregator subscriptions
-- [ ] Signal generation and logging
+- [ ] Order executor for simulated fills at best bid/ask
+- [ ] Position manager for tracking open positions
+- [ ] P&L calculator for real-time profit/loss
+- [ ] Integration with strategy signals
+- [ ] Risk management checks
 
 ---
 
@@ -325,8 +403,8 @@
 - [x] Betting odds fetching
 - [x] Data aggregation layer (background tasks)
 
-### Phase 3: Trading Engine (0% Complete)
-- [ ] Strategy 1: Sharp Line Detection
+### Phase 3: Trading Engine (20% Complete)
+- [x] Strategy 1: Sharp Line Detection ✅
 - [ ] Strategy 2: Momentum Scalping
 - [ ] Strategy 3: EV Multi-Source
 - [ ] Strategy 4: Mean Reversion
@@ -353,10 +431,10 @@
 
 ## 📈 Statistics
 
-- **Total Iterations Completed:** 4
-- **Total Files Created:** 50+
-- **Total Lines of Code:** ~7,500
-- **Estimated Project Completion:** 55%
+- **Total Iterations Completed:** 5
+- **Total Files Created:** 55+
+- **Total Lines of Code:** ~8,500
+- **Estimated Project Completion:** 60%
 
 ---
 

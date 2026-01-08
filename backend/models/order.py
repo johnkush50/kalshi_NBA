@@ -90,7 +90,8 @@ class SimulatedOrder(OrderBase):
 
 class TradeSignalBase(BaseModel):
     """Base trade signal model."""
-    strategy_id: UUID4 = Field(..., description="Strategy generating the signal")
+    strategy_id: str = Field(..., description="Strategy generating the signal")
+    strategy_name: str = Field(..., description="Name of the strategy")
     market_ticker: str = Field(..., description="Target market ticker")
     side: OrderSide = Field(..., description="Recommended side (yes or no)")
     quantity: int = Field(..., gt=0, description="Recommended quantity")
@@ -107,17 +108,19 @@ class TradeSignal(TradeSignalBase):
         json_schema_extra = {
             "example": {
                 "strategy_id": "123e4567-e89b-12d3-a456-426614174000",
-                "market_ticker": "kxnbagame-26jan06dalsac",
+                "strategy_name": "Sharp Line Detection",
+                "market_ticker": "KXNBAGAME-26JAN08DALUTA-DAL",
                 "side": "yes",
                 "quantity": 10,
                 "confidence": 0.85,
-                "reason": "Kalshi price 7% below sportsbook consensus",
+                "reason": "Kalshi undervalued by 7.5%. Kalshi: 45.0%, Consensus: 52.5%. EV: +8.2%",
                 "metadata": {
-                    "kalshi_price": 0.43,
-                    "sportsbook_consensus": 0.50,
-                    "divergence_percent": 7.0
+                    "kalshi_prob": 0.45,
+                    "consensus_prob": 0.525,
+                    "divergence_percent": 7.5,
+                    "expected_value": 0.082
                 },
-                "timestamp": "2026-01-06T19:32:15"
+                "timestamp": "2026-01-08T19:32:15Z"
             }
         }
 

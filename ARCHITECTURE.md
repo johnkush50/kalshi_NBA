@@ -1,7 +1,7 @@
 # System Architecture - Current State
 
 **Last Updated:** January 8, 2026
-**Project Phase:** Phase 1 - Core Infrastructure (Iteration 4 Complete)
+**Project Phase:** Phase 3 - Trading Engine (Iteration 5 Complete)
 
 ---
 
@@ -531,6 +531,182 @@ ev = calculate_expected_value(
 
 ---
 
+## ✅ Trading Strategies (Iteration 5)
+
+**Location:** `backend/strategies/`, `backend/engine/strategy_engine.py`
+**Status:** ✅ Sharp Line Detection Complete
+
+### Architecture Overview
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    Strategy Engine                           │
+│                                                              │
+│  ┌──────────────────────────────────────────────────────┐  │
+│  │              Strategy Registry                        │  │
+│  │  • sharp_line -> SharpLineStrategy                   │  │
+│  │  • momentum -> MomentumStrategy (future)             │  │
+│  │  • ev_multi -> EVMultiStrategy (future)              │  │
+│  └──────────────────────┬───────────────────────────────┘  │
+│                         │                                   │
+│  ┌──────────────────────▼───────────────────────────────┐  │
+│  │           Active Strategies                           │  │
+│  │  {strategy_id: BaseStrategy instance}                │  │
+│  │  • load_strategy(type, config)                       │  │
+│  │  • enable_strategy(id)                               │  │
+│  │  • evaluate_game(game_state)                         │  │
+│  └──────────────────────┬───────────────────────────────┘  │
+│                         │                                   │
+│  ┌──────────────────────▼───────────────────────────────┐  │
+│  │           Background Evaluation Loop                  │  │
+│  │  • Runs every strategy_eval_interval (2 seconds)     │  │
+│  │  • Evaluates all enabled strategies on all games     │  │
+│  │  • Notifies signal handlers when signals generated   │  │
+│  └──────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Base Strategy Class
+
+All strategies inherit from `BaseStrategy`:
+
+```python
+from backend.strategies.base import BaseStrategy
+from backend.models.game_state import GameState
+from backend.models.order import TradeSignal
+
+class MyStrategy(BaseStrategy):
+    STRATEGY_NAME = "My Strategy"
+    STRATEGY_TYPE = "my_strategy"
+    STRATEGY_DESCRIPTION = "Description of my strategy"
+    
+    def get_default_config(self) -> Dict[str, Any]:
+        return {
+            "threshold_percent": 5.0,
+            "position_size": 10,
+            "cooldown_minutes": 5
+        }
+    
+    async def evaluate(self, game_state: GameState) -> List[TradeSignal]:
+        # Analyze game_state and return signals
+        signals = []
+        # ... strategy logic ...
+        return signals
+```
+
+### Sharp Line Detection Strategy
+
+**Purpose:** Compare Kalshi prices to sportsbook consensus and trade on divergences.
+
+**Configuration:**
+```python
+{
+    "threshold_percent": 5.0,       # Min % divergence to trigger
+    "min_sample_sportsbooks": 3,    # Min sportsbooks for valid consensus
+    "position_size": 10,            # Contracts per trade
+    "cooldown_minutes": 5,          # Minutes between trades on same market
+    "min_ev_percent": 2.0,          # Minimum expected value
+    "market_types": ["moneyline"],  # Which market types to trade
+    "use_kelly_sizing": False,      # Use Kelly criterion
+    "kelly_fraction": 0.25          # Fraction of Kelly to use
+}
+```
+
+**Signal Logic:**
+1. Get Kalshi mid-price for market (implied probability)
+2. Get consensus probability from sportsbooks
+3. Calculate divergence = |kalshi_prob - consensus_prob|
+4. If divergence > threshold AND sufficient sources:
+   - kalshi_prob < consensus_prob → BUY YES (undervalued)
+   - kalshi_prob > consensus_prob → BUY NO (overvalued)
+5. Check cooldown period
+6. Calculate EV, check minimum
+7. Generate TradeSignal
+
+### Code Examples
+
+**Loading a Strategy:**
+```python
+from backend.engine.strategy_engine import get_strategy_engine
+
+engine = get_strategy_engine()
+
+# Load with custom config
+strategy = await engine.load_strategy(
+    strategy_type="sharp_line",
+    config={
+        "threshold_percent": 3.0,
+        "min_sample_sportsbooks": 1
+    },
+    enable=True
+)
+
+print(f"Loaded: {strategy.strategy_id}")
+```
+
+**Manual Evaluation:**
+```python
+from backend.engine.aggregator import get_aggregator
+from backend.engine.strategy_engine import get_strategy_engine
+
+aggregator = get_aggregator()
+engine = get_strategy_engine()
+
+# Get game state
+game_state = aggregator.get_game_state(game_id)
+
+# Evaluate all enabled strategies
+signals = await engine.evaluate_game(game_state)
+
+for signal in signals:
+    print(f"{signal.side.value.upper()} {signal.quantity} {signal.market_ticker}")
+    print(f"Reason: {signal.reason}")
+```
+
+**Adding a Signal Handler:**
+```python
+async def on_signal(signal: TradeSignal):
+    print(f"New signal: {signal.side} {signal.market_ticker}")
+    # Route to order execution engine (future)
+
+engine = get_strategy_engine()
+engine.add_signal_handler(on_signal)
+```
+
+### API Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/strategies/types` | GET | List available strategy types |
+| `/api/strategies/` | GET | List loaded strategies |
+| `/api/strategies/load` | POST | Load a new strategy instance |
+| `/api/strategies/{id}` | GET | Get strategy details |
+| `/api/strategies/{id}` | DELETE | Unload a strategy |
+| `/api/strategies/{id}/enable` | POST | Enable a strategy |
+| `/api/strategies/{id}/disable` | POST | Disable a strategy |
+| `/api/strategies/{id}/config` | PUT | Update configuration |
+| `/api/strategies/{id}/evaluate` | POST | Manual evaluation on a game |
+| `/api/strategies/evaluate-all` | POST | Evaluate all enabled strategies |
+| `/api/strategies/{id}/signals` | GET | Get recent signals |
+
+### Test Script
+
+```bash
+# List available strategy types
+python scripts/test_strategy.py --list-types
+
+# Load and test on a game
+python scripts/test_strategy.py --load-and-test --game-id <UUID>
+
+# Run all enabled strategies
+python scripts/test_strategy.py --evaluate
+
+# Debug game state
+python scripts/test_strategy.py --show-state --game-id <UUID>
+```
+
+---
+
 ## ❌ Not Yet Implemented
 
 ### Backend Infrastructure
@@ -564,10 +740,11 @@ ev = calculate_expected_value(
 
 ### Trading Engine
 **Priority:** High  
-**Next Up:** Iteration 5-8
+**Status:** Partially Complete (Iteration 5)
 
-- ❌ Strategy base class
-- ❌ Sharp Line Detection strategy
+- ✅ Strategy base class
+- ✅ Sharp Line Detection strategy
+- ✅ Strategy execution engine
 - ❌ Momentum Scalping strategy
 - ❌ EV Multi-Source strategy
 - ❌ Mean Reversion strategy

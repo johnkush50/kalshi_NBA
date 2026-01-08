@@ -705,3 +705,32 @@ async def refresh_odds(game_id: str):
     except Exception as e:
         logger.error(f"Failed to refresh odds: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to refresh odds")
+
+
+@router.get("/debug/market/{ticker}")
+async def debug_kalshi_market(ticker: str):
+    """
+    Debug endpoint to fetch raw Kalshi market data for a ticker.
+    
+    Returns the raw API response to help debug orderbook issues.
+    """
+    try:
+        client = KalshiClient()
+        market_data = await client.get_market(ticker)
+        
+        return {
+            "ticker": ticker,
+            "raw_response": market_data,
+            "orderbook_fields": {
+                "yes_bid": market_data.get("yes_bid"),
+                "yes_ask": market_data.get("yes_ask"),
+                "no_bid": market_data.get("no_bid"),
+                "no_ask": market_data.get("no_ask"),
+                "last_price": market_data.get("last_price"),
+                "volume": market_data.get("volume"),
+            }
+        }
+    except KalshiNotFoundError:
+        raise HTTPException(status_code=404, detail=f"Market not found: {ticker}")
+    except KalshiAPIError as e:
+        raise HTTPException(status_code=502, detail=f"Kalshi API error: {str(e)}")

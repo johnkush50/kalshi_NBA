@@ -253,6 +253,7 @@ class DataAggregator:
             try:
                 # Fetch market data from Kalshi
                 market_data = await client.get_market(ticker)
+                logger.debug(f"Kalshi market data for {ticker}: yes_bid={market_data.get('yes_bid')}, yes_ask={market_data.get('yes_ask')}")
                 if market_data:
                     # Update orderbook
                     market.orderbook = OrderbookState(
@@ -263,6 +264,7 @@ class DataAggregator:
                         no_ask=Decimal(str(market_data.get("no_ask", 0))) if market_data.get("no_ask") else None,
                         last_updated=datetime.utcnow()
                     )
+                    logger.debug(f"Orderbook for {ticker}: mid_price={market.orderbook.mid_price}")
                     
                     # Calculate implied probability from Kalshi price
                     if market.orderbook.mid_price is not None:
@@ -273,7 +275,7 @@ class DataAggregator:
                     updated = True
                     
             except Exception as e:
-                logger.warning(f"Error fetching orderbook for {ticker}: {e}")
+                logger.warning(f"Error fetching orderbook for {ticker}: {e}", exc_info=True)
                 continue
         
         if updated:
@@ -387,18 +389,37 @@ class DataAggregator:
                 
                 game_state.odds[vendor] = odds_state
                 
-                # Collect moneyline odds for consensus
-                if odds_state.moneyline_home:
+                # Collect moneyline odds for consensus (check for None explicitly, not falsy)
+                if odds_state.moneyline_home is not None:
                     home_ml_odds.append(odds_state.moneyline_home)
-                if odds_state.moneyline_away:
+                if odds_state.moneyline_away is not None:
                     away_ml_odds.append(odds_state.moneyline_away)
+            
+            logger.debug(f"Collected odds - home_ml: {home_ml_odds}, away_ml: {away_ml_odds}")
             
             # Calculate consensus
             if home_ml_odds and away_ml_odds:
                 game_state.consensus = self._calculate_consensus(home_ml_odds, away_ml_odds, odds_data)
+                logger.debug(f"Consensus calculated: home={game_state.consensus.home_win_probability}, away={game_state.consensus.away_win_probability}")
+            else:
+                logger.warning(f"Cannot calculate consensus - missing odds data for game {game_id}")
             
-            # Store in database (pass the raw odds data)
-            await db.store_betting_odds(game_id, {"data": odds_data})
+            # Store each vendor's odds in database
+            for vendor, odds_state in game_state.odds.items():
+                await db.store_betting_odds(
+                    game_id=game_id,
+                    nba_game_id=nba_game_id,
+                    vendor=vendor,
+                    moneyline_home=odds_state.moneyline_home,
+                    moneyline_away=odds_state.moneyline_away,
+                    spread_home_value=float(odds_state.spread_home_value) if odds_state.spread_home_value else None,
+                    spread_home_odds=odds_state.spread_home_odds,
+                    spread_away_value=float(odds_state.spread_away_value) if odds_state.spread_away_value else None,
+                    spread_away_odds=odds_state.spread_away_odds,
+                    total_value=float(odds_state.total_value) if odds_state.total_value else None,
+                    total_over_odds=odds_state.total_over_odds,
+                    total_under_odds=odds_state.total_under_odds
+                )
             
             game_state.last_updated = datetime.utcnow()
             await self._notify_subscribers(game_id, game_state, EventType.ODDS_UPDATE)

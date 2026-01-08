@@ -13,39 +13,41 @@ Building a full-stack Kalshi NBA paper trading application. This system monitors
 ---
 
 ## Your Task This Session
-**Iteration 5: Trading Strategies (Sharp Line Detection)**
+**Iteration 6: Order Execution Engine**
 
-**Iteration 4 Status:** ✅ COMPLETE
+**Iteration 5 Status:** ✅ COMPLETE
 
-All Data Aggregation Layer is complete:
-- ✅ Unified GameState model (game_state.py)
-- ✅ Odds calculation utilities with Decimal (odds_calculator.py)
-- ✅ DataAggregator with background polling (aggregator.py)
-- ✅ WebSocket integration for real-time orderbook updates
-- ✅ Event subscription system (ORDERBOOK_UPDATE, NBA_UPDATE, ODDS_UPDATE)
-- ✅ Aggregator API endpoints (aggregator.py routes)
-- ✅ Test script created (test_aggregator.py)
+Sharp Line Detection Strategy is complete:
+- ✅ Base strategy class with abstract interface (base.py)
+- ✅ Sharp Line Detection strategy implementation (sharp_line.py)
+- ✅ Strategy execution engine with background evaluation (strategy_engine.py)
+- ✅ Strategy API endpoints (strategies.py routes)
+- ✅ Test script created (test_strategy.py)
+- ✅ Strategy engine lifecycle hooks in main.py
 
-**Next Steps (Iteration 5):**
-1. **STRATEGY BASE CLASS:**
-   - Create abstract base class for all strategies
-   - Define common interface: evaluate(), execute_trade()
-   - Configuration loading from database
+**Next Steps (Iteration 6):**
+1. **ORDER EXECUTOR:**
+   - Simulate order fills at best bid/ask
+   - Handle market and limit orders
+   - Track fill prices and timestamps
+   - Connect to strategy signals
 
-2. **SHARP LINE DETECTION STRATEGY:**
-   - Compare Kalshi prices to sportsbook consensus
-   - Calculate divergence threshold
-   - Generate trade signals when threshold exceeded
-   - Subscribe to DataAggregator events
+2. **POSITION MANAGER:**
+   - Track open positions by market
+   - Calculate average entry price
+   - Handle position closes
+   - Store positions in database
 
-3. **STRATEGY INTEGRATION:**
-   - Register strategy with DataAggregator
-   - Handle event callbacks
-   - Log signals and decisions
+3. **P&L CALCULATOR:**
+   - Real-time P&L calculation
+   - Mark-to-market using current prices
+   - Realized vs unrealized P&L
+   - Performance metrics (win rate, Sharpe)
 
-4. **TESTING:**
-   - Unit tests for odds comparison logic
-   - Integration tests with mock data
+4. **RISK MANAGEMENT:**
+   - Position size limits
+   - Drawdown limits
+   - Max concurrent positions
 
 ---
 

@@ -127,6 +127,15 @@ async def startup_event():
     except Exception as e:
         logger.error(f"✗ Failed to start data aggregator: {e}")
 
+    # Start strategy engine
+    try:
+        from backend.engine.strategy_engine import get_strategy_engine
+        strategy_engine = get_strategy_engine()
+        await strategy_engine.start()
+        logger.info("✓ Strategy engine started")
+    except Exception as e:
+        logger.error(f"✗ Failed to start strategy engine: {e}")
+
     logger.info("Application startup complete")
     logger.info("=" * 60)
 
@@ -141,6 +150,15 @@ async def shutdown_event():
     logger.info("=" * 60)
     logger.info("Shutting down Kalshi NBA Paper Trading Application")
     logger.info("=" * 60)
+
+    # Stop strategy engine
+    try:
+        from backend.engine.strategy_engine import get_strategy_engine
+        strategy_engine = get_strategy_engine()
+        await strategy_engine.stop()
+        logger.info("✓ Strategy engine stopped")
+    except Exception as e:
+        logger.error(f"✗ Error stopping strategy engine: {e}")
 
     # Stop data aggregator
     try:

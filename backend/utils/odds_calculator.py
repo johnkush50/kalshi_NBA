@@ -176,7 +176,7 @@ def calculate_ev(
     side: str = "yes"
 ) -> Decimal:
     """
-    Calculate expected value of a trade.
+    Calculate expected value of a trade as a fraction of the cost.
     
     Args:
         kalshi_price: Kalshi price in cents (0-100)
@@ -184,17 +184,17 @@ def calculate_ev(
         side: "yes" or "no"
         
     Returns:
-        Expected value as Decimal (can be negative)
+        Expected value as Decimal fraction (e.g., 0.05 = 5% edge)
         Positive EV means profitable bet in the long run.
         
     Formula for YES side:
-        EV = (payout * true_prob) - cost
-        EV = ((100 - price) * true_prob) - price * (1 - true_prob)
-        Simplified: EV = true_prob * 100 - price
+        EV = (true_prob * payout - (1 - true_prob) * cost) / cost
+        Where cost = price/100, payout = (100 - price)/100
         
     Example:
         If Kalshi price is 45¢ and true probability is 55%:
-        EV = 0.55 * 100 - 45 = 55 - 45 = +10¢ (positive EV)
+        cost = 0.45, payout = 0.55
+        EV = (0.55 * 0.55 - 0.45 * 0.45) / 0.45 = 0.222 (22.2% edge)
     """
     if kalshi_price < DECIMAL_ZERO or kalshi_price > DECIMAL_HUNDRED:
         raise ValueError(f"Kalshi price must be 0-100, got {kalshi_price}")
@@ -202,19 +202,37 @@ def calculate_ev(
     if true_probability < DECIMAL_ZERO or true_probability > DECIMAL_ONE:
         raise ValueError(f"Probability must be 0-1, got {true_probability}")
     
+    # Convert price to fraction (0-1)
+    price_frac = kalshi_price / DECIMAL_HUNDRED
+    
     if side.lower() == "yes":
-        # Buying YES: profit if event happens
-        # Cost = price, Payout if win = 100 - price, Prob of win = true_prob
-        ev = (true_probability * DECIMAL_HUNDRED) - kalshi_price
+        # Buying YES at price (e.g., 66 cents)
+        # If YES wins (prob = true_prob): get 100 cents back, profit = 100 - price
+        # If NO wins: lose price cents
+        # EV = true_prob * (100 - price) - (1 - true_prob) * price
+        # Simplified: EV = true_prob * 100 - price (in cents)
+        # As fraction: EV = (true_prob - price_frac) / price_frac
+        cost = price_frac
+        if cost == DECIMAL_ZERO:
+            return DECIMAL_ZERO
+        ev_absolute = true_probability - price_frac
+        ev = ev_absolute / cost  # Express as fraction of cost
     elif side.lower() == "no":
-        # Buying NO: profit if event doesn't happen
-        # Cost = 100 - price, Payout if win = price, Prob of win = 1 - true_prob
+        # Buying NO at price (e.g., 66 cents for NO)
+        # If NO wins (prob = 1 - true_prob): get 100 cents back, profit = 100 - price
+        # If YES wins: lose price cents
+        # EV = (1 - true_prob) * 100 - price (in cents)
+        # As fraction: EV = ((1 - true_prob) - price_frac) / price_frac
         no_probability = DECIMAL_ONE - true_probability
-        ev = (no_probability * DECIMAL_HUNDRED) - (DECIMAL_HUNDRED - kalshi_price)
+        cost = price_frac  # Cost is the NO price, not (1 - YES price)
+        if cost == DECIMAL_ZERO:
+            return DECIMAL_ZERO
+        ev_absolute = no_probability - price_frac
+        ev = ev_absolute / cost  # Express as fraction of cost
     else:
         raise ValueError(f"Side must be 'yes' or 'no', got {side}")
     
-    return ev.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    return ev.quantize(Decimal("0.0001"), rounding=ROUND_HALF_UP)
 
 
 def calculate_kelly_fraction(
