@@ -1,7 +1,7 @@
 # System Architecture - Current State
 
-**Last Updated:** January 7, 2026
-**Project Phase:** Phase 1 - Core Infrastructure (Iteration 1 Complete)
+**Last Updated:** January 8, 2026
+**Project Phase:** Phase 1 - Core Infrastructure (Iteration 2 Complete)
 
 ---
 
@@ -162,9 +162,84 @@ game_info = extract_game_info_from_kalshi_ticker("kxnbagame-26jan06dalsac")
 
 ---
 
+## ✅ Kalshi Integration (Iteration 2)
+
+**Location:** `backend/integrations/kalshi/`
+**Status:** ✅ Complete
+
+### Architecture Overview
+
+```
+backend/integrations/kalshi/
+├── __init__.py
+├── auth.py          # RSA-PSS signature generation
+├── exceptions.py    # Custom exception classes
+├── client.py        # REST API client with retry logic
+└── websocket.py     # WebSocket client with reconnection
+```
+
+### Authentication Flow (RSA-PSS)
+
+Kalshi uses RSA-PSS signatures, NOT HMAC. The flow:
+
+1. Load private key from `.env` (with `\n` → newline conversion)
+2. Build message: `{timestamp_ms}{METHOD}{path}{body}`
+3. Sign with RSA-PSS (SHA256, MAX_LENGTH salt)
+4. Base64 encode signature
+5. Include headers: `KALSHI-ACCESS-KEY`, `KALSHI-ACCESS-SIGNATURE`, `KALSHI-ACCESS-TIMESTAMP`
+
+### Code Examples
+
+**Testing Authentication:**
+```bash
+python scripts/test_kalshi_connection.py --test-auth
+```
+
+**Listing Games for a Date:**
+```python
+from backend.integrations.kalshi.client import KalshiClient
+
+async def list_games():
+    client = KalshiClient()
+    games = await client.get_nba_games_for_date("2026-01-08")
+    for game in games:
+        print(f"{game['away_team']} @ {game['home_team']}")
+```
+
+**Loading a Game via API:**
+```bash
+curl -X POST http://localhost:8000/api/games/load \
+  -H "Content-Type: application/json" \
+  -d '{"event_ticker": "KXNBAGAME-26JAN08LALSAC"}'
+```
+
+**WebSocket Subscription:**
+```python
+from backend.integrations.kalshi.websocket import KalshiWebSocketClient
+
+async def stream_orderbook():
+    ws = KalshiWebSocketClient()
+    await ws.connect()
+    await ws.subscribe(["KXNBAGAME-26JAN08LALSAC-Y"], ["ticker", "orderbook_delta"])
+    
+    async for message in ws.listen():
+        if message["type"] == "ticker":
+            print(f"Price update: {message['data']}")
+```
+
+### API Endpoints
+
+- `GET /api/games/available?date=YYYY-MM-DD` - List available NBA games
+- `POST /api/games/load` - Load a game by ticker or date+index
+- `GET /api/games/{game_id}` - Get game with markets
+- `GET /api/games/` - List all loaded games
+- `DELETE /api/games/{game_id}` - Delete a game
+
+---
+
 ## 🚧 In Progress
 
-*Ready to start Iteration 2 - Kalshi API Integration*
+*Ready to start Iteration 3 - balldontlie.io Integration*
 
 ---
 
@@ -173,13 +248,16 @@ game_info = extract_game_info_from_kalshi_ticker("kxnbagame-26jan06dalsac")
 ### Backend Infrastructure
 **Status:** ✅ Complete (Iteration 1)
 
-### API Integrations
-**Priority:** High  
-**Next Up:** Iteration 2-3
+### Kalshi API Integration
+**Status:** ✅ Complete (Iteration 2)
 
-- ❌ Kalshi REST API client
-- ❌ Kalshi WebSocket connection
-- ❌ Orderbook processing
+### API Integrations Remaining
+**Priority:** High  
+**Next Up:** Iteration 3
+
+- ✅ Kalshi REST API client
+- ✅ Kalshi WebSocket connection
+- ✅ Orderbook processing
 - ❌ balldontlie.io REST API client
 - ❌ NBA live data polling
 - ❌ Betting odds fetching
@@ -341,43 +419,48 @@ kalshi_nba_trading/
 
 ## 🔌 API Integration Patterns
 
-### Kalshi Integration (Planned)
+### Kalshi Integration (IMPLEMENTED ✅)
 
-**Flow for Loading a Game:**
+**Authentication (RSA-PSS):**
 ```python
-# User enters: "kxnbagame-26jan06dalsac"
+from backend.integrations.kalshi.auth import KalshiAuth
+from backend.config.settings import settings, get_kalshi_private_key
 
-# Step 1: Extract event ticker
-market = await kalshi_client.get_market("kxnbagame-26jan06dalsac")
-event_ticker = market.event_ticker  # "NBAGAME-26JAN06-DALSAC"
+# Auth is handled automatically by KalshiClient
+auth = KalshiAuth(settings.kalshi_api_key, get_kalshi_private_key())
+headers = auth.get_auth_headers("GET", "/trade-api/v2/exchange/status")
+```
 
-# Step 2: Get all related markets
-event = await kalshi_client.get_event(
-    event_ticker, 
-    with_nested_markets=True
-)
+**Game Selection Flow (NEW):**
+```python
+from backend.integrations.kalshi.client import KalshiClient
 
-# Step 3: Categorize markets
-for market in event.markets:
-    if "spread" in market.ticker.lower():
-        # It's a spread market
-    elif "total" in market.ticker.lower():
-        # It's a total market
-    # etc...
+client = KalshiClient()
+
+# Step 1: User provides a date
+games = await client.get_nba_games_for_date("2026-01-08")
+# Returns list of games with all market types
+
+# Step 2: User selects a game
+game = games[0]  # LAL @ SAC
+event_ticker = game["event_ticker"]  # KXNBAGAME-26JAN08LALSAC
+
+# Step 3: Load full game with all markets
+event = await client.get_event(event_ticker, with_nested_markets=True)
 ```
 
 **WebSocket for Real-Time Data:**
 ```python
-async def connect_kalshi_ws():
-    async with websockets.connect(KALSHI_WS_URL) as ws:
-        await ws.send({
-            "cmd": "subscribe",
-            "channels": ["orderbook_delta"],
-            "market_tickers": [list_of_tickers]
-        })
-        
-        async for message in ws:
-            await process_orderbook_update(message)
+from backend.integrations.kalshi.websocket import KalshiWebSocketClient
+
+ws = KalshiWebSocketClient()
+await ws.connect()  # Auth headers included automatically
+await ws.subscribe(["KXNBAGAME-26JAN08LALSAC-Y"], ["ticker", "orderbook_delta"])
+
+async for message in ws.listen():
+    if message["type"] == "orderbook_delta":
+        # Orderbook state is tracked automatically
+        orderbook = ws.get_orderbook("KXNBAGAME-26JAN08LALSAC-Y")
 ```
 
 ### balldontlie.io Integration (Planned)
@@ -562,26 +645,28 @@ REDIS_URL=redis://localhost:6379
 
 ## 🐛 Known Issues
 
-### 1. Ticker Parser Date Format (Priority: High)
+### 1. Ticker Parser Date Format (Priority: FIXED ✅)
 **Component:** `backend/utils/ticker_parser.py`
-**Description:** Date parsing logic interprets format incorrectly
-**Root Cause:** Parser treats '26jan06' as DDmmmYY instead of YYmmmDD
-**Impact:**
-- 2 unit tests failing
-- Will cause incorrect game date matching with balldontlie.io API
+**Description:** Date parsing logic interpreted format incorrectly
+**Root Cause:** Parser treated '26jan06' as DDmmmYY instead of YYmmmDD
+**Resolution:** ✅ Fixed in Iteration 2 - Now correctly parses YYmmmDD format
+**Status:** All 17 unit tests pass
 
-**Fix Required:** Swap day and year parsing order in regex logic
-**Timeline:** Fix in Iteration 2
-
-### 2. Dependency Versions (Priority: Fixed)
+### 2. Dependency Versions (Priority: FIXED ✅)
 **Component:** `requirements.txt`
 **Description:** Initial dependency versions had conflicts
-**Resolution:** ✅ Updated to working versions during testing
+**Resolution:** ✅ Updated to working versions
 **Current Versions:**
 - supabase==2.27.1
 - httpx==0.28.1
 - websockets==15.0.1
+- cryptography==41.0.0 (added for RSA-PSS)
 - All conflicts resolved
+
+### 3. WebSocket URL (Priority: FIXED ✅)
+**Component:** `backend/config/settings.py`
+**Description:** Wrong WebSocket URL was configured
+**Resolution:** ✅ Fixed to `wss://api.elections.kalshi.com/trade-api/ws/v2`
 
 ---
 

@@ -28,7 +28,8 @@ class TestExtractGameInfo:
 
     def test_valid_ticker_different_teams(self):
         """Test parsing with different teams."""
-        result = extract_game_info_from_kalshi_ticker("kxnbagame-15dec25lalgsc")
+        # Format: YYmmmDD - 25dec15 means year=2025, month=Dec, day=15
+        result = extract_game_info_from_kalshi_ticker("kxnbagame-25dec15lalgsc")
 
         assert result["date"] == "2025-12-15"
         assert result["away_team_abbr"] == "LAL"
@@ -36,7 +37,8 @@ class TestExtractGameInfo:
 
     def test_valid_ticker_february(self):
         """Test parsing with February date."""
-        result = extract_game_info_from_kalshi_ticker("kxnbagame-14feb26boscle")
+        # Format: YYmmmDD - 26feb14 means year=2026, month=Feb, day=14
+        result = extract_game_info_from_kalshi_ticker("kxnbagame-26feb14boscle")
 
         assert result["date"] == "2026-02-14"
         assert result["away_team_abbr"] == "BOS"
@@ -44,7 +46,8 @@ class TestExtractGameInfo:
 
     def test_valid_ticker_different_format(self):
         """Test parsing ticker without kx prefix."""
-        result = extract_game_info_from_kalshi_ticker("nbagame-20mar26miaatl")
+        # Format: YYmmmDD - 26mar20 means year=2026, month=Mar, day=20
+        result = extract_game_info_from_kalshi_ticker("nbagame-26mar20miaatl")
 
         assert result["date"] == "2026-03-20"
         assert result["away_team_abbr"] == "MIA"
@@ -101,7 +104,8 @@ class TestFormatTickerForDisplay:
 
     def test_format_different_month(self):
         """Test formatting with different month."""
-        result = format_ticker_for_display("kxnbagame-15dec25lalgsc")
+        # Format: YYmmmDD - 25dec15 means year=2025, month=Dec, day=15
+        result = format_ticker_for_display("kxnbagame-25dec15lalgsc")
         assert result == "LAL @ GSC - Dec 15, 2025"
 
     def test_format_invalid_ticker(self):

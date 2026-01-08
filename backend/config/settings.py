@@ -7,6 +7,7 @@ All sensitive values (API keys, database credentials) are loaded from environmen
 
 from pydantic_settings import BaseSettings
 from typing import Optional
+from pathlib import Path
 
 
 class Settings(BaseSettings):
@@ -20,9 +21,10 @@ class Settings(BaseSettings):
     # Kalshi API Configuration
     # ========================================================================
     kalshi_api_url: str = "https://api.elections.kalshi.com/trade-api/v2"
-    kalshi_ws_url: str = "wss://trading-api.kalshi.com/trade-api/ws/v2"
+    kalshi_ws_url: str = "wss://api.elections.kalshi.com/trade-api/ws/v2"
     kalshi_api_key: str
     kalshi_api_secret: str
+    kalshi_api_secret_file: Optional[str] = None  # Path to .pem file for private key
 
     # ========================================================================
     # balldontlie.io API Configuration
@@ -105,3 +107,40 @@ def is_development() -> bool:
         bool: True if in development, False otherwise.
     """
     return settings.environment.lower() == "development"
+
+
+def get_kalshi_private_key() -> str:
+    """
+    Get the Kalshi private key for RSA-PSS authentication.
+    
+    Loads from file if kalshi_api_secret_file is set and exists,
+    otherwise uses kalshi_api_secret from environment.
+    
+    CRITICAL: Replaces literal "\\n" with actual newlines for PEM format.
+    
+    Returns:
+        str: Private key in PEM format ready for cryptography library.
+    
+    Raises:
+        ValueError: If no private key is available.
+    """
+    private_key_pem = None
+    
+    # Try loading from file first
+    if settings.kalshi_api_secret_file:
+        file_path = Path(settings.kalshi_api_secret_file)
+        if file_path.exists():
+            private_key_pem = file_path.read_text(encoding='utf-8')
+    
+    # Fall back to environment variable
+    if not private_key_pem:
+        private_key_pem = settings.kalshi_api_secret
+    
+    if not private_key_pem:
+        raise ValueError("No Kalshi private key available. Set KALSHI_API_SECRET or KALSHI_API_SECRET_FILE.")
+    
+    # CRITICAL: Replace literal "\n" strings with actual newlines
+    # Environment variables often have escaped newlines
+    private_key_pem = private_key_pem.replace('\\n', '\n')
+    
+    return private_key_pem

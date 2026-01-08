@@ -21,7 +21,7 @@ def extract_game_info_from_kalshi_ticker(ticker: str) -> Dict[str, str]:
     """
     Parse Kalshi market ticker to extract date and team information.
 
-    The ticker format is typically: "kxnbagame-DDmmmYYTEAM1TEAM2"
+    The ticker format is typically: "kxnbagame-YYmmmDDTEAM1TEAM2"
     Example: "kxnbagame-26jan06dalsac" → Date: 2026-01-06, Away: DAL, Home: SAC
 
     Args:
@@ -50,17 +50,17 @@ def extract_game_info_from_kalshi_ticker(ticker: str) -> Dict[str, str]:
         # Remove common prefixes
         ticker_clean = ticker_lower.replace("kxnbagame-", "").replace("kx", "")
 
-        # Extract date portion using regex pattern: DDmmmYY
-        # Example: "26jan06" from "26jan06dalsac"
+        # Extract date portion using regex pattern: YYmmmDD
+        # Example: "26jan06" from "26jan06dalsac" means 2026-Jan-06
         date_pattern = r'(\d{2})([a-z]{3})(\d{2})'
         match = re.search(date_pattern, ticker_clean, re.IGNORECASE)
 
         if not match:
             raise ValueError(f"Could not find date pattern in ticker: {ticker}")
 
-        day = match.group(1)
+        year = "20" + match.group(1)  # First 2 digits are year (20XX century)
         month = match.group(2).capitalize()
-        year = "20" + match.group(3)  # Assumes 20XX century
+        day = match.group(3)  # Last 2 digits are day
 
         # Convert month abbreviation to date
         try:

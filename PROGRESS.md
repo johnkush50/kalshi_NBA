@@ -116,32 +116,76 @@
 
 ---
 
+### Iteration 2 - Kalshi API Integration
+**Date:** January 8, 2026
+**Task:** Implement Kalshi REST and WebSocket clients with RSA-PSS authentication
+**Status:** ✅ Complete
+
+**Files Created:**
+- `backend/integrations/kalshi/auth.py` - RSA-PSS authentication module
+- `backend/integrations/kalshi/exceptions.py` - Custom exception classes
+- `scripts/test_kalshi_connection.py` - CLI test script
+
+**Files Modified:**
+- `backend/integrations/kalshi/client.py` - Complete REST client rewrite
+- `backend/integrations/kalshi/websocket.py` - Complete WebSocket client rewrite
+- `backend/api/routes/games.py` - Functional game endpoints
+- `backend/config/settings.py` - Fixed WebSocket URL, added private key loading
+- `backend/utils/ticker_parser.py` - Fixed date parsing bug (YYmmmDD)
+- `requirements.txt` - Added cryptography==41.0.0
+
+**Key Features Implemented:**
+1. **RSA-PSS Authentication** - Correct Kalshi auth using cryptography library
+2. **REST Client** - Full async client with retry logic and all endpoints
+3. **WebSocket Client** - Real-time connection with auto-reconnection
+4. **Game Selection by Date** - New feature to browse/select games
+5. **Orderbook Tracking** - Automatic snapshot/delta handling
+6. **Test Script** - CLI tool to verify integration
+
+**API Endpoints Implemented:**
+- `GET /api/games/available?date=YYYY-MM-DD` - List NBA games for date
+- `POST /api/games/load` - Load game by ticker or date+index
+- `GET /api/games/{game_id}` - Get game with markets
+- `GET /api/games/` - List all games
+- `DELETE /api/games/{game_id}` - Delete game
+
+**Bug Fixes:**
+- ✅ Fixed ticker parser date format (YYmmmDD, not DDmmmYY)
+- ✅ Fixed WebSocket URL (was wrong domain)
+- ✅ Added private key newline conversion for .env format
+
+**Testing:**
+- ✅ All 17 ticker parser tests pass
+- ✅ FastAPI server starts without errors
+- ✅ Auth test script verifies RSA-PSS signing
+
+---
+
 ## ⏳ Up Next
 
-### Iteration 2 - Kalshi API Integration (Not Started)
-**Planned Task:** Implement Kalshi REST and WebSocket clients
+### Iteration 3 - balldontlie.io Integration (Not Started)
+**Planned Task:** Implement NBA data integration
 
 **TODO:**
-- [ ] Implement Kalshi REST client (authentication, endpoints)
-- [ ] Implement Kalshi WebSocket connection
-- [ ] Add orderbook data processing
-- [ ] Create market discovery flow
-- [ ] Store data in database
-- [ ] Add error handling and reconnection logic
+- [ ] Implement balldontlie.io REST client
+- [ ] Add NBA game matching logic
+- [ ] Implement live data polling
+- [ ] Fetch betting odds
+- [ ] Store NBA data in database
 
 ---
 
 ## 📊 Overall Progress
 
-### Phase 1: Core Infrastructure (40% Complete)
+### Phase 1: Core Infrastructure (70% Complete)
 - [x] Backend project structure
 - [x] Database schema & migrations
-- [ ] Kalshi API integration
+- [x] Kalshi API integration
 - [ ] balldontlie.io API integration
 - [x] Configuration management
 
-### Phase 2: Data Pipeline (0% Complete)
-- [ ] Kalshi WebSocket connection
+### Phase 2: Data Pipeline (50% Complete)
+- [x] Kalshi WebSocket connection
 - [ ] NBA live data polling
 - [ ] Betting odds fetching
 - [ ] Data aggregation layer
@@ -174,36 +218,37 @@
 
 ## 📈 Statistics
 
-- **Total Iterations Completed:** 1
-- **Total Files Created:** 35
-- **Total Lines of Code:** ~3,500
-- **Estimated Project Completion:** 20%
+- **Total Iterations Completed:** 2
+- **Total Files Created:** 40+
+- **Total Lines of Code:** ~5,000
+- **Estimated Project Completion:** 35%
 
 ---
 
 ## 🐛 Known Issues
 
-### Ticker Parser Date Format Bug (Iteration 1)
-**Issue:** The `extract_game_info_from_kalshi_ticker()` function incorrectly parses dates.
-- **Current behavior:** Parses '26jan06' as 2006-01-26 (DDmmmYY format)
-- **Expected behavior:** Should parse as 2026-01-06 (YYmmmDD format)
-- **Impact:** 2 of 17 unit tests failing
-- **Status:** ⚠️ To be fixed in Iteration 2
-- **Location:** `backend/utils/ticker_parser.py`
+### Ticker Parser Date Format Bug (FIXED ✅)
+**Issue:** The `extract_game_info_from_kalshi_ticker()` function incorrectly parsed dates.
+- **Was:** Parsed '26jan06' as 2006-01-26 (DDmmmYY format)
+- **Fixed:** Now correctly parses as 2026-01-06 (YYmmmDD format)
+- **Status:** ✅ Fixed in Iteration 2
+- **All 17 tests now pass**
 
-### Dependency Version Conflicts (Resolved)
+### WebSocket URL Bug (FIXED ✅)
+**Issue:** Wrong WebSocket URL in settings.py
+- **Was:** `wss://trading-api.kalshi.com/trade-api/ws/v2`
+- **Fixed:** `wss://api.elections.kalshi.com/trade-api/ws/v2`
+- **Status:** ✅ Fixed in Iteration 2
+
+### Dependency Version Conflicts (FIXED ✅)
 **Issue:** Initial requirements.txt had incompatible package versions
-- httpx version conflicts with supabase dependencies
-- websockets version too old (12.0 vs required 13.0+)
-- postgrest version too old (0.13.0 vs required 2.27.0+)
-
-**Resolution:** ✅ Fixed - Updated requirements.txt with working versions:
+**Resolution:** ✅ Fixed with working versions:
 - supabase==2.27.1
 - httpx==0.28.1
 - websockets==15.0.1
-- postgrest==2.27.1
+- cryptography==41.0.0 (new for RSA-PSS)
 
-**Status:** ✅ Resolved during testing
+**Status:** ✅ All resolved
 
 ---
 

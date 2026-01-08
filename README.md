@@ -68,6 +68,42 @@ It enables users to:
    - API Documentation: http://localhost:8000/docs
    - Health Check: http://localhost:8000/api/health
 
+## 🎮 Quick Start - Loading a Game
+
+### 1. Test Kalshi Authentication
+```bash
+python scripts/test_kalshi_connection.py --test-auth
+```
+
+### 2. List Available NBA Games for a Date
+```bash
+python scripts/test_kalshi_connection.py --list-games --date 2026-01-08
+```
+
+### 3. Load a Game via API
+```bash
+# Start the server
+uvicorn backend.main:app --reload
+
+# List available games
+curl "http://localhost:8000/api/games/available?date=2026-01-08"
+
+# Load a specific game
+curl -X POST http://localhost:8000/api/games/load \
+  -H "Content-Type: application/json" \
+  -d '{"event_ticker": "KXNBAGAME-26JAN08LALSAC"}'
+
+# Or load by date and index
+curl -X POST http://localhost:8000/api/games/load \
+  -H "Content-Type: application/json" \
+  -d '{"date": "2026-01-08", "game_index": 0}'
+```
+
+### 4. Test WebSocket (Real-time Data)
+```bash
+python scripts/test_kalshi_connection.py --test-websocket --ticker KXNBAGAME-26JAN08LALSAC-Y
+```
+
 ## 📁 Project Structure
 
 ```
@@ -170,9 +206,11 @@ REDIS_URL=redis://localhost:6379
 - `GET /api/health/ready` - Readiness check
 - `GET /api/health/live` - Liveness check
 
-### Games (Skeleton)
-- `POST /api/games/load` - Load game from Kalshi ticker
-- `GET /api/games/{game_id}` - Get game details
+### Games (✅ Functional)
+- `GET /api/games/available?date=YYYY-MM-DD` - List available NBA games for date
+- `POST /api/games/load` - Load game by ticker or date+index
+- `GET /api/games/{game_id}` - Get game with markets
+- `GET /api/games/` - List all loaded games
 - `DELETE /api/games/{game_id}` - Delete game
 
 ### Strategies (Skeleton)
@@ -219,8 +257,17 @@ pytest -v
 - [x] Unit tests
 - [x] Documentation
 
+**✅ Iteration 2 Complete: Kalshi API Integration**
+- [x] RSA-PSS authentication (NOT HMAC)
+- [x] REST client with retry logic
+- [x] WebSocket client with auto-reconnection
+- [x] Game selection by date feature
+- [x] Orderbook tracking (snapshot + delta)
+- [x] All game endpoints functional
+- [x] Test script for CLI testing
+- [x] Fixed ticker parser date bug
+
 **⏳ Next Steps:**
-- Iteration 2: Kalshi API integration (REST + WebSocket)
 - Iteration 3: balldontlie.io API integration
 - Iteration 4: Implement trading strategies
 - Iteration 5: Order execution engine
@@ -291,5 +338,5 @@ This is a personal project. For issues or suggestions, please open an issue on G
 
 ---
 
-**Status**: ✅ Iteration 1 Complete - Backend Foundation Ready
-**Last Updated**: January 2026
+**Status**: ✅ Iteration 2 Complete - Kalshi API Integration Ready
+**Last Updated**: January 8, 2026
