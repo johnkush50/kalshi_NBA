@@ -707,6 +707,93 @@ python scripts/test_strategy.py --show-state --game-id <UUID>
 
 ---
 
+## ✅ Momentum Scalping Strategy (Iteration 6)
+
+**Location:** `backend/strategies/momentum.py`
+**Status:** ✅ Complete
+
+### Strategy Description
+
+The Momentum Scalping strategy detects rapid price movements in Kalshi markets and trades in the direction of momentum. The assumption is that significant price moves indicate informed trading or market sentiment shifts.
+
+**Example:**
+- Lakers YES was 45¢ 2 minutes ago
+- Lakers YES is now 52¢ (7¢ move in 2 minutes)
+- Momentum detected → BUY YES (follow the move)
+
+### Price History Tracking
+
+The strategy maintains a rolling window of price observations for each market:
+
+```python
+class PricePoint:
+    """A single price observation with timestamp."""
+    def __init__(self, price: Decimal, timestamp: datetime):
+        self.price = price
+        self.timestamp = timestamp
+
+# Price history stored as: ticker -> deque of PricePoint
+# Uses deque with maxlen=100 for automatic old data removal
+```
+
+### Signal Generation Logic
+
+1. **Update Price History** - Record current mid-price with timestamp
+2. **Get Historical Price** - Find price from `lookback_seconds` ago
+3. **Calculate Change** - `price_change = current - historical` (in cents)
+4. **Check Threshold** - If `abs(price_change) >= min_price_change_cents`:
+   - `price_change > 0` → BUY YES (price going up)
+   - `price_change < 0` → BUY NO (price going down)
+5. **Check Spread** - Ensure spread ≤ `max_spread_cents`
+6. **Check Cooldown** - Ensure cooldown period passed
+7. **Generate Signal** - Create TradeSignal with confidence based on move magnitude
+
+### Configuration Parameters
+
+```python
+{
+    "lookback_seconds": 120,        # Time window to measure momentum (default: 2 min)
+    "min_price_change_cents": 5,    # Minimum price change to trigger (default: 5¢)
+    "position_size": 10,            # Contracts per trade (default: 10)
+    "cooldown_minutes": 3,          # Time between trades on same market (default: 3)
+    "max_spread_cents": 3,          # Maximum acceptable spread (default: 3¢)
+    "market_types": ["moneyline", "spread", "total"]  # Which markets to trade
+}
+```
+
+### Code Examples
+
+**Loading the Strategy:**
+```python
+from backend.engine.strategy_engine import get_strategy_engine
+
+engine = get_strategy_engine()
+
+strategy = await engine.load_strategy(
+    strategy_type="momentum",
+    config={
+        "lookback_seconds": 60,
+        "min_price_change_cents": 3
+    },
+    enable=True
+)
+```
+
+**Testing via CLI:**
+```bash
+# Test momentum strategy (builds price history over time)
+python scripts/test_strategy.py --test-momentum --game-id <UUID>
+```
+
+### Important Notes
+
+1. **Requires Time to Build History** - First few evaluations will show "no historical price" until enough data is collected
+2. **Stable Markets = No Signals** - Strategy only fires when prices actually move significantly
+3. **Testing vs Production** - Use lower thresholds for testing (1¢ change, 30s lookback), higher for production (5¢, 120s)
+4. **In-Memory History** - Price history is stored per strategy instance; reloading clears history
+
+---
+
 ## ❌ Not Yet Implemented
 
 ### Backend Infrastructure
@@ -740,12 +827,12 @@ python scripts/test_strategy.py --show-state --game-id <UUID>
 
 ### Trading Engine
 **Priority:** High  
-**Status:** Partially Complete (Iteration 5)
+**Status:** Partially Complete (Iteration 6)
 
 - ✅ Strategy base class
 - ✅ Sharp Line Detection strategy
 - ✅ Strategy execution engine
-- ❌ Momentum Scalping strategy
+- ✅ Momentum Scalping strategy
 - ❌ EV Multi-Source strategy
 - ❌ Mean Reversion strategy
 - ❌ Correlation Play strategy

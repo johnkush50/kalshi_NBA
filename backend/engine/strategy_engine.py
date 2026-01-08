@@ -16,6 +16,7 @@ from backend.models.game_state import GameState
 from backend.models.order import TradeSignal
 from backend.strategies.base import BaseStrategy
 from backend.strategies.sharp_line import SharpLineStrategy
+from backend.strategies.momentum import MomentumStrategy
 from backend.engine.aggregator import get_aggregator
 
 logger = logging.getLogger(__name__)
@@ -24,8 +25,8 @@ logger = logging.getLogger(__name__)
 # Strategy type registry
 STRATEGY_REGISTRY: Dict[str, type] = {
     "sharp_line": SharpLineStrategy,
+    "momentum": MomentumStrategy,
     # Future strategies will be added here:
-    # "momentum": MomentumStrategy,
     # "ev_multi": EVMultiStrategy,
     # "mean_reversion": MeanReversionStrategy,
     # "correlation": CorrelationStrategy,

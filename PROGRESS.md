@@ -374,17 +374,71 @@
 
 ---
 
+### Iteration 6 - Momentum Scalping Strategy
+**Date:** January 8, 2026
+**Task:** Implement Momentum Scalping strategy that trades on rapid price movements
+**Status:** ✅ Complete
+
+**Files Created:**
+- `backend/strategies/momentum.py` - Momentum Scalping strategy implementation
+
+**Files Modified:**
+- `backend/engine/strategy_engine.py` - Added MomentumStrategy to registry
+- `scripts/test_strategy.py` - Added --test-momentum command
+- `ARCHITECTURE.md` - Added Momentum Scalping Strategy section
+- `PROGRESS.md` - This file
+- `CLAUDE.md` - Updated task status
+
+**Features Implemented:**
+
+1. **MomentumStrategy Class** (`backend/strategies/momentum.py`)
+   - Tracks rolling price history per market using `deque` with timestamps
+   - Compares current price to historical price from N seconds ago
+   - Generates BUY YES signals when price is rising (follow momentum up)
+   - Generates BUY NO signals when price is falling (follow momentum down)
+   - Configurable parameters:
+     - `lookback_seconds`: Time window to measure momentum (default: 120)
+     - `min_price_change_cents`: Minimum price change to trigger (default: 5)
+     - `position_size`: Contracts per trade (default: 10)
+     - `cooldown_minutes`: Time between trades on same market (default: 3)
+     - `max_spread_cents`: Maximum acceptable spread (default: 3)
+     - `market_types`: Which market types to trade (default: all)
+
+2. **Price History Tracking**
+   - `PricePoint` class stores price + timestamp
+   - History stored in `deque` with maxlen=100 for auto-cleanup
+   - `_get_historical_price()` finds closest price to target time
+   - Only returns historical price if within 50% of lookback window
+
+3. **Test Script Enhancement**
+   - Added `--test-momentum` command
+   - Loads strategy with test-friendly config (low thresholds)
+   - Evaluates 6 times over 30 seconds to build price history
+   - Shows any signals generated
+
+**Testing:**
+- ✅ Strategy compiles without errors
+- ✅ Registered in strategy engine
+- ✅ API endpoints work for loading/evaluating
+- ✅ Test script runs successfully
+
+**Notes:**
+- Strategy needs TIME to build price history before detecting momentum
+- In stable markets, no signals will be generated (correct behavior)
+- Use lower thresholds for testing, higher for production
+
+---
+
 ## ⏳ Up Next
 
-### Iteration 6 - Order Execution Engine
-**Planned Task:** Implement simulated order execution
+### Iteration 7 - EV Multi-Book Arbitrage Strategy
+**Planned Task:** Implement EV Multi-Book Arbitrage strategy
 
 **TODO:**
-- [ ] Order executor for simulated fills at best bid/ask
-- [ ] Position manager for tracking open positions
-- [ ] P&L calculator for real-time profit/loss
-- [ ] Integration with strategy signals
-- [ ] Risk management checks
+- [ ] Compare Kalshi prices to multiple sportsbook odds
+- [ ] Calculate expected value across all sources
+- [ ] Generate signals when positive EV detected
+- [ ] Configurable minimum EV threshold
 
 ---
 
@@ -403,9 +457,9 @@
 - [x] Betting odds fetching
 - [x] Data aggregation layer (background tasks)
 
-### Phase 3: Trading Engine (20% Complete)
+### Phase 3: Trading Engine (30% Complete)
 - [x] Strategy 1: Sharp Line Detection ✅
-- [ ] Strategy 2: Momentum Scalping
+- [x] Strategy 2: Momentum Scalping ✅
 - [ ] Strategy 3: EV Multi-Source
 - [ ] Strategy 4: Mean Reversion
 - [ ] Strategy 5: Correlation Play
@@ -431,10 +485,10 @@
 
 ## 📈 Statistics
 
-- **Total Iterations Completed:** 5
-- **Total Files Created:** 55+
-- **Total Lines of Code:** ~8,500
-- **Estimated Project Completion:** 60%
+- **Total Iterations Completed:** 6
+- **Total Files Created:** 56+
+- **Total Lines of Code:** ~8,800
+- **Estimated Project Completion:** 65%
 
 ---
 

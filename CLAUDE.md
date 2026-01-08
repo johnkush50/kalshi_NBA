@@ -13,41 +13,29 @@ Building a full-stack Kalshi NBA paper trading application. This system monitors
 ---
 
 ## Your Task This Session
-**Iteration 6: Order Execution Engine**
+**Iteration 7: EV Multi-Book Arbitrage Strategy**
 
-**Iteration 5 Status:** ✅ COMPLETE
+**Iteration 6 Status:** ✅ COMPLETE
 
-Sharp Line Detection Strategy is complete:
-- ✅ Base strategy class with abstract interface (base.py)
-- ✅ Sharp Line Detection strategy implementation (sharp_line.py)
-- ✅ Strategy execution engine with background evaluation (strategy_engine.py)
-- ✅ Strategy API endpoints (strategies.py routes)
-- ✅ Test script created (test_strategy.py)
-- ✅ Strategy engine lifecycle hooks in main.py
+Momentum Scalping Strategy is complete:
+- ✅ MomentumStrategy class with price history tracking (momentum.py)
+- ✅ Rolling price history using deque with timestamps
+- ✅ Signal generation on significant price movements
+- ✅ Registered in strategy engine
+- ✅ Test script updated with --test-momentum command
 
-**Next Steps (Iteration 6):**
-1. **ORDER EXECUTOR:**
-   - Simulate order fills at best bid/ask
-   - Handle market and limit orders
-   - Track fill prices and timestamps
-   - Connect to strategy signals
+**Next Steps (Iteration 7):**
+1. **EV MULTI-BOOK STRATEGY:**
+   - Compare Kalshi prices to multiple sportsbook odds
+   - Calculate expected value across all sources
+   - Generate signals when positive EV detected
+   - Configurable minimum EV threshold
 
-2. **POSITION MANAGER:**
-   - Track open positions by market
-   - Calculate average entry price
-   - Handle position closes
-   - Store positions in database
-
-3. **P&L CALCULATOR:**
-   - Real-time P&L calculation
-   - Mark-to-market using current prices
-   - Realized vs unrealized P&L
-   - Performance metrics (win rate, Sharpe)
-
-4. **RISK MANAGEMENT:**
-   - Position size limits
-   - Drawdown limits
-   - Max concurrent positions
+2. **FUTURE ITERATIONS:**
+   - Iteration 8: Mean Reversion Strategy
+   - Iteration 9: Correlation Play Strategy
+   - Iteration 10: Order Execution Engine
+   - Iteration 11: Position Manager & P&L Calculator
 
 ---
 

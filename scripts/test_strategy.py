@@ -10,6 +10,7 @@ Usage:
 import asyncio
 import argparse
 import sys
+import time
 sys.path.insert(0, '.')
 
 import httpx
@@ -171,6 +172,74 @@ async def evaluate_all(game_id: str = None):
                 print(f"    Reason: {signal['reason']}")
 
 
+async def test_momentum(game_id: str):
+    """Test momentum strategy by building price history over time."""
+    print("\n" + "="*60)
+    print("Momentum Scalping Strategy Test")
+    print("="*60)
+    
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        # Load momentum strategy with test config
+        print("\n1. Loading Momentum strategy...")
+        response = await client.post(
+            f"{BASE_URL}/api/strategies/load",
+            json={
+                "strategy_type": "momentum",
+                "enable": True,
+                "config": {
+                    "lookback_seconds": 30,      # Short lookback for testing
+                    "min_price_change_cents": 1,  # Low threshold for testing
+                    "cooldown_minutes": 0.1,      # 6 second cooldown for testing
+                    "max_spread_cents": 10        # Higher spread tolerance for testing
+                }
+            }
+        )
+        
+        if response.status_code != 200:
+            print(f"   Error: {response.text}")
+            return
+        
+        strategy_data = response.json()
+        strategy_id = strategy_data["strategy_id"]
+        print(f"   ✓ Strategy loaded: {strategy_id}")
+        
+        # Load game
+        print(f"\n2. Loading game {game_id}...")
+        response = await client.post(f"{BASE_URL}/api/aggregator/load/{game_id}")
+        if response.status_code != 200:
+            print(f"   Error: {response.text}")
+            return
+        print("   ✓ Game loaded")
+        
+        # Evaluate multiple times to build price history
+        print("\n3. Building price history (evaluating every 5 seconds)...")
+        
+        for i in range(6):
+            print(f"   Evaluation {i+1}/6...")
+            response = await client.post(
+                f"{BASE_URL}/api/strategies/{strategy_id}/evaluate",
+                params={"game_id": game_id}
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                if data["signals_generated"] > 0:
+                    print(f"   ✓ Signal generated!")
+                    for signal in data["signals"]:
+                        print(f"      {signal['side'].upper()} {signal['quantity']} {signal['market_ticker']}")
+                        print(f"      Reason: {signal['reason']}")
+            
+            if i < 5:
+                time.sleep(5)
+        
+        # Final status
+        print(f"\n4. Strategy status...")
+        response = await client.get(f"{BASE_URL}/api/strategies/{strategy_id}")
+        if response.status_code == 200:
+            status = response.json()
+            print(f"   Recent signals: {len(status.get('recent_signals', []))}")
+
+
 async def show_game_state(game_id: str):
     """Show the current game state for debugging."""
     print("\n" + "="*60)
@@ -214,9 +283,10 @@ async def show_game_state(game_id: str):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Test Sharp Line Detection strategy")
+    parser = argparse.ArgumentParser(description="Test trading strategies")
     parser.add_argument("--list-types", action="store_true", help="List available strategy types")
-    parser.add_argument("--load-and-test", action="store_true", help="Load strategy and test on a game")
+    parser.add_argument("--load-and-test", action="store_true", help="Load Sharp Line strategy and test on a game")
+    parser.add_argument("--test-momentum", action="store_true", help="Test momentum strategy")
     parser.add_argument("--evaluate", action="store_true", help="Run all enabled strategies")
     parser.add_argument("--show-state", action="store_true", help="Show game state for debugging")
     parser.add_argument("--game-id", type=str, help="Game UUID")
@@ -230,6 +300,11 @@ def main():
             print("Error: --game-id required")
             sys.exit(1)
         asyncio.run(load_and_test(args.game_id))
+    elif args.test_momentum:
+        if not args.game_id:
+            print("Error: --game-id required")
+            sys.exit(1)
+        asyncio.run(test_momentum(args.game_id))
     elif args.evaluate:
         asyncio.run(evaluate_all(args.game_id))
     elif args.show_state:

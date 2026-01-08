@@ -101,7 +101,7 @@ class BaseStrategy(ABC):
         last_trade = self._last_trade_time.get(market_ticker)
         
         if last_trade is None:
-            logger.info(f"Cooldown check {market_ticker}: NO previous trade (strategy_id={self.strategy_id})")
+            # logger.info(f"Cooldown check {market_ticker}: NO previous trade (strategy_id={self.strategy_id})")
             return True
         
         elapsed = datetime.utcnow() - last_trade
@@ -109,16 +109,17 @@ class BaseStrategy(ABC):
         can_trade = elapsed >= timedelta(minutes=cooldown_minutes)
         
         if not can_trade:
-            logger.info(
-                f"Cooldown BLOCKED {market_ticker}: elapsed={elapsed_minutes:.2f}min < cooldown={cooldown_minutes}min"
-            )
+            # logger.info(
+            #     f"Cooldown BLOCKED {market_ticker}: elapsed={elapsed_minutes:.2f}min < cooldown={cooldown_minutes}min"
+            # )
+            pass
         return can_trade
     
     def record_trade(self, market_ticker: str) -> None:
         """Record that a trade was made on a market (for cooldown tracking)."""
         now = datetime.utcnow()
         self._last_trade_time[market_ticker] = now
-        logger.info(f"Cooldown STARTED for {market_ticker} (strategy_id={self.strategy_id})")
+        # logger.info(f"Cooldown STARTED for {market_ticker} (strategy_id={self.strategy_id})")
     
     def record_signal(self, signal: TradeSignal) -> None:
         """Record a generated signal for history/analysis."""
