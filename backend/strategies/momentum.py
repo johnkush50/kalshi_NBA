@@ -178,9 +178,9 @@ class MomentumStrategy(BaseStrategy):
             return None
         
         # Calculate price change (in cents)
-        # Prices are stored as decimals 0-1, convert to cents for comparison
-        current_cents = float(current_price) * 100
-        historical_cents = float(historical_price) * 100
+        # Kalshi prices are already in cents (0-100), no conversion needed
+        current_cents = float(current_price)
+        historical_cents = float(historical_price)
         price_change = current_cents - historical_cents
         
         logger.info(
@@ -262,8 +262,8 @@ class MomentumStrategy(BaseStrategy):
         if yes_bid is None or yes_ask is None:
             return None
         
-        # Convert to cents
-        spread = (float(yes_ask) - float(yes_bid)) * 100
+        # Prices are already in cents
+        spread = float(yes_ask) - float(yes_bid)
         return spread
     
     def _format_reason(

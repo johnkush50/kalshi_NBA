@@ -794,6 +794,107 @@ python scripts/test_strategy.py --test-momentum --game-id <UUID>
 
 ---
 
+## ✅ EV Multi-Book Arbitrage Strategy (Iteration 7)
+
+**Location:** `backend/strategies/ev_multibook.py`
+**Status:** ✅ Complete
+
+### Strategy Description
+
+The EV Multi-Book Arbitrage strategy finds positive expected value opportunities by comparing Kalshi prices against individual sportsbook odds (not just consensus). Unlike Sharp Line which uses consensus, this strategy evaluates each sportsbook individually.
+
+**Example:**
+- Kalshi: Lakers YES @ 45¢
+- FanDuel: Lakers -150 (60% implied) → EV = +15%
+- DraftKings: Lakers -140 (58% implied) → EV = +13%
+- BetMGM: Lakers -160 (62% implied) → EV = +17% ← BEST
+
+Trade when multiple sportsbooks show +EV above threshold.
+
+### How It Differs From Sharp Line
+
+| Aspect | Sharp Line | EV Multi-Book |
+|--------|------------|---------------|
+| Odds comparison | Consensus of all books | Each book individually |
+| Signal trigger | Divergence from consensus | Multiple books showing +EV |
+| Confidence | Based on divergence % | Based on # agreeing books |
+| Best for | Finding mispriced markets | Finding value vs specific books |
+
+### Signal Generation Logic
+
+1. **Get Kalshi Price** - Current ask price for YES and NO sides
+2. **For Each Sportsbook:**
+   - Get implied probability from American odds
+   - Calculate EV for YES side: `(true_prob - kalshi_prob) / kalshi_prob`
+   - Calculate EV for NO side similarly
+   - Record books showing +EV above threshold
+3. **Check Agreement** - Count books showing +EV for each side
+4. **Generate Signal** - If `count >= min_sportsbooks_agreeing`:
+   - Pick side with more agreeing books
+   - Include best book and EV in metadata
+
+### Configuration Parameters
+
+```python
+{
+    "min_ev_percent": 3.0,           # Minimum EV percentage to consider (default: 3%)
+    "min_sportsbooks_agreeing": 2,   # Minimum books showing +EV (default: 2)
+    "position_size": 10,             # Contracts per trade (default: 10)
+    "cooldown_minutes": 5,           # Cooldown between trades (default: 5)
+    "preferred_books": [],           # Empty = use all books
+    "market_types": ["moneyline"],   # Market types to evaluate
+    "exclude_books": []              # Books to ignore
+}
+```
+
+### Code Examples
+
+**Loading the Strategy:**
+```python
+from backend.engine.strategy_engine import get_strategy_engine
+
+engine = get_strategy_engine()
+
+strategy = await engine.load_strategy(
+    strategy_type="ev_multibook",
+    config={
+        "min_ev_percent": 2.0,
+        "min_sportsbooks_agreeing": 2
+    },
+    enable=True
+)
+```
+
+**Testing via CLI:**
+```bash
+# Test EV multi-book strategy
+python scripts/test_strategy.py --test-ev-multibook --game-id <UUID>
+```
+
+### Signal Metadata
+
+Generated signals include rich metadata:
+```python
+{
+    "best_book": "fanduel",
+    "best_ev_percent": 15.2,
+    "best_implied_prob": 0.60,
+    "agreeing_books": 3,
+    "all_ev_books": [("fanduel", 15.2, 0.60), ("draftkings", 13.1, 0.58), ...],
+    "entry_price": 45.0,
+    "is_home_market": True
+}
+```
+
+### Important Notes
+
+1. **Requires Odds Data** - Strategy needs sportsbook odds in GameState.odds
+2. **More Conservative** - Requiring multiple books to agree reduces false signals
+3. **Book Selection** - Use `preferred_books` to only trust certain sportsbooks
+4. **Different from Sharp Line** - This looks at individual books, not consensus
+
+---
+
 ## ❌ Not Yet Implemented
 
 ### Backend Infrastructure
@@ -827,13 +928,13 @@ python scripts/test_strategy.py --test-momentum --game-id <UUID>
 
 ### Trading Engine
 **Priority:** High  
-**Status:** Partially Complete (Iteration 6)
+**Status:** Partially Complete (Iteration 7)
 
 - ✅ Strategy base class
 - ✅ Sharp Line Detection strategy
 - ✅ Strategy execution engine
 - ✅ Momentum Scalping strategy
-- ❌ EV Multi-Source strategy
+- ✅ EV Multi-Book Arbitrage strategy
 - ❌ Mean Reversion strategy
 - ❌ Correlation Play strategy
 - ❌ Order execution simulator

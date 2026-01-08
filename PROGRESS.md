@@ -429,16 +429,76 @@
 
 ---
 
+### Iteration 7 - EV Multi-Book Arbitrage Strategy
+**Date:** January 8, 2026
+**Task:** Implement EV Multi-Book Arbitrage strategy and fix momentum price bug
+**Status:** ✅ Complete
+
+**Bug Fix:**
+- Fixed momentum strategy price unit bug (prices showing 3650¢ instead of 36.5¢)
+- Root cause: Kalshi prices are already in cents (0-100), but code was multiplying by 100 again
+- Fixed in `_evaluate_market()` and `_calculate_spread()` methods
+
+**Files Created:**
+- `backend/strategies/ev_multibook.py` - EV Multi-Book Arbitrage strategy implementation
+
+**Files Modified:**
+- `backend/strategies/momentum.py` - Fixed price unit bug (removed * 100)
+- `backend/engine/strategy_engine.py` - Added EVMultiBookStrategy to registry
+- `scripts/test_strategy.py` - Added --test-ev-multibook command
+- `ARCHITECTURE.md` - Added EV Multi-Book Arbitrage Strategy section
+- `PROGRESS.md` - This file
+- `CLAUDE.md` - Updated task status
+
+**Features Implemented:**
+
+1. **EVMultiBookStrategy Class** (`backend/strategies/ev_multibook.py`)
+   - Compares Kalshi prices to each sportsbook individually (not consensus)
+   - Calculates EV for YES and NO sides against each book
+   - Generates signals when multiple books agree on +EV
+   - Configurable parameters:
+     - `min_ev_percent`: Minimum EV percentage to consider (default: 3%)
+     - `min_sportsbooks_agreeing`: Minimum books showing +EV (default: 2)
+     - `position_size`: Contracts per trade (default: 10)
+     - `cooldown_minutes`: Cooldown between trades (default: 5)
+     - `preferred_books`: List of trusted books (empty = all)
+     - `market_types`: Which market types to trade (default: ["moneyline"])
+     - `exclude_books`: Books to ignore
+
+2. **Key Differences from Sharp Line:**
+   - Sharp Line: Uses consensus odds from all books
+   - EV Multi-Book: Evaluates each book individually
+   - More conservative: Requires multiple books to agree
+
+3. **Test Script Enhancement**
+   - Added `--test-ev-multibook` command
+   - Loads strategy with test-friendly config
+   - Shows detailed signal metadata including best book and EV
+
+**Testing:**
+- ✅ Strategy compiles without errors
+- ✅ Registered in strategy engine
+- ✅ API endpoints work for loading/evaluating
+- ✅ Test script runs successfully
+- ✅ Momentum prices now display correctly (36.5¢ not 3650¢)
+
+**Notes:**
+- Strategy requires sportsbook odds data to function
+- Requiring multiple agreeing books reduces false signals
+- Use `preferred_books` to only trust certain sportsbooks
+
+---
+
 ## ⏳ Up Next
 
-### Iteration 7 - EV Multi-Book Arbitrage Strategy
-**Planned Task:** Implement EV Multi-Book Arbitrage strategy
+### Iteration 8 - Live Game Mean Reversion Strategy
+**Planned Task:** Implement Mean Reversion strategy for live games
 
 **TODO:**
-- [ ] Compare Kalshi prices to multiple sportsbook odds
-- [ ] Calculate expected value across all sources
-- [ ] Generate signals when positive EV detected
-- [ ] Configurable minimum EV threshold
+- [ ] Detect overreactions to in-game events
+- [ ] Calculate deviation from expected probability
+- [ ] Generate signals when price deviates significantly
+- [ ] Configurable reversion thresholds
 
 ---
 
@@ -457,10 +517,10 @@
 - [x] Betting odds fetching
 - [x] Data aggregation layer (background tasks)
 
-### Phase 3: Trading Engine (30% Complete)
+### Phase 3: Trading Engine (40% Complete)
 - [x] Strategy 1: Sharp Line Detection ✅
 - [x] Strategy 2: Momentum Scalping ✅
-- [ ] Strategy 3: EV Multi-Source
+- [x] Strategy 3: EV Multi-Book Arbitrage ✅
 - [ ] Strategy 4: Mean Reversion
 - [ ] Strategy 5: Correlation Play
 - [ ] Order execution simulation
@@ -485,10 +545,10 @@
 
 ## 📈 Statistics
 
-- **Total Iterations Completed:** 6
-- **Total Files Created:** 56+
-- **Total Lines of Code:** ~8,800
-- **Estimated Project Completion:** 65%
+- **Total Iterations Completed:** 7
+- **Total Files Created:** 57+
+- **Total Lines of Code:** ~9,100
+- **Estimated Project Completion:** 68%
 
 ---
 

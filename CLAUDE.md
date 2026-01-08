@@ -13,26 +13,26 @@ Building a full-stack Kalshi NBA paper trading application. This system monitors
 ---
 
 ## Your Task This Session
-**Iteration 7: EV Multi-Book Arbitrage Strategy**
+**Iteration 8: Live Game Mean Reversion Strategy**
 
-**Iteration 6 Status:** ✅ COMPLETE
+**Iteration 7 Status:** ✅ COMPLETE
 
-Momentum Scalping Strategy is complete:
-- ✅ MomentumStrategy class with price history tracking (momentum.py)
-- ✅ Rolling price history using deque with timestamps
-- ✅ Signal generation on significant price movements
+EV Multi-Book Arbitrage Strategy is complete:
+- ✅ EVMultiBookStrategy class (ev_multibook.py)
+- ✅ Compares Kalshi to each sportsbook individually
+- ✅ Generates signals when multiple books show +EV
 - ✅ Registered in strategy engine
-- ✅ Test script updated with --test-momentum command
+- ✅ Test script updated with --test-ev-multibook command
+- ✅ Fixed momentum strategy price unit bug (3650¢ -> 36.5¢)
 
-**Next Steps (Iteration 7):**
-1. **EV MULTI-BOOK STRATEGY:**
-   - Compare Kalshi prices to multiple sportsbook odds
-   - Calculate expected value across all sources
-   - Generate signals when positive EV detected
-   - Configurable minimum EV threshold
+**Next Steps (Iteration 8):**
+1. **MEAN REVERSION STRATEGY:**
+   - Detect overreactions to in-game events
+   - Calculate deviation from expected probability
+   - Generate signals when price deviates significantly
+   - Configurable reversion thresholds
 
 2. **FUTURE ITERATIONS:**
-   - Iteration 8: Mean Reversion Strategy
    - Iteration 9: Correlation Play Strategy
    - Iteration 10: Order Execution Engine
    - Iteration 11: Position Manager & P&L Calculator
