@@ -277,13 +277,74 @@ pytest -v
 - [x] Enhanced API endpoints
 - [x] Test script for balldontlie.io
 
+**✅ Iteration 4 Complete: Data Aggregation Layer**
+- [x] Unified GameState model
+- [x] Odds calculation utilities (Decimal-based)
+- [x] DataAggregator with background polling
+- [x] Event subscription system
+- [x] Aggregator API endpoints
+- [x] Test script for aggregator
+
 **⏳ Next Steps:**
-- Iteration 4: Data aggregation layer
-- Iteration 5: Implement trading strategies
+- Iteration 5: Trading strategies (Sharp Line Detection)
 - Iteration 6: Order execution engine
 - Iteration 7: Frontend development (Next.js)
 
 See `PROGRESS.md` for detailed iteration tracking.
+
+## 📊 Data Aggregation
+
+The Data Aggregation Layer provides a unified interface for accessing all game-related data through a single `GameState` model.
+
+### Loading a Game via Aggregator
+
+```bash
+# Using the test script
+python scripts/test_aggregator.py --load-game --date 2026-01-08 --index 0
+
+# Show state for a loaded game
+python scripts/test_aggregator.py --show-state --game-id <UUID>
+```
+
+### API Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/aggregator/states` | GET | List all active game states |
+| `/api/aggregator/load/{game_id}` | POST | Load a game into the aggregator |
+| `/api/aggregator/state/{game_id}` | GET | Get unified state for a game |
+| `/api/aggregator/unload/{game_id}` | DELETE | Stop tracking a game |
+
+### Example Usage
+
+```bash
+# Start the server
+uvicorn backend.main:app --reload
+
+# List active game states
+curl http://localhost:8000/api/aggregator/states
+
+# Load a game into the aggregator
+curl -X POST http://localhost:8000/api/aggregator/load/{game_id}
+
+# Get unified state (orderbooks + NBA data + odds)
+curl http://localhost:8000/api/aggregator/state/{game_id}
+```
+
+### Test Script Usage
+
+```bash
+# Load a game by date and index
+python scripts/test_aggregator.py --load-game --date 2026-01-08 --index 0
+
+# Show current state for a game
+python scripts/test_aggregator.py --show-state --game-id <UUID>
+
+# List all active states
+python scripts/test_aggregator.py --list-states
+```
+
+---
 
 ## 🎯 Trading Strategies (Future Implementation)
 
@@ -395,5 +456,5 @@ This is a personal project. For issues or suggestions, please open an issue on G
 
 ---
 
-**Status**: ✅ Iteration 3 Complete - balldontlie.io Integration Ready
+**Status**: ✅ Iteration 4 Complete - Data Aggregation Layer Ready
 **Last Updated**: January 8, 2026

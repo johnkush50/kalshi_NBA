@@ -225,16 +225,88 @@
 
 ---
 
+### Iteration 4 - Data Aggregation Layer
+**Date:** January 8, 2026
+**Task:** Implement unified data aggregation with background polling
+**Status:** ✅ Complete
+
+**Files Created:**
+- `backend/models/game_state.py` - Unified GameState model with OrderbookState, NBALiveState, OddsState
+- `backend/utils/odds_calculator.py` - Decimal-based odds conversion utilities
+- `backend/engine/aggregator.py` - DataAggregator with background task management
+- `backend/api/routes/aggregator.py` - REST endpoints for aggregator control
+- `scripts/test_aggregator.py` - CLI test script for aggregator testing
+
+**Files Modified:**
+- `backend/main.py` - Added aggregator startup/shutdown lifecycle hooks
+- `backend/api/routes/__init__.py` - Added aggregator router
+
+**Features Implemented:**
+1. **Unified GameState Model**
+   - `OrderbookState` - Market orderbook data with Decimal prices
+   - `NBALiveState` - Live game score, period, time remaining
+   - `OddsState` - Sportsbook odds by vendor
+   - `GameState` - Combined view with calculated implied probabilities
+
+2. **Odds Calculation Utilities**
+   - `american_to_probability()` - Convert American odds to Decimal probability
+   - `probability_to_american()` - Convert probability to American odds
+   - `calculate_implied_probability()` - Calculate from Kalshi prices
+   - `calculate_expected_value()` - EV calculation for strategies
+   - All calculations use `Decimal` to avoid floating point errors
+
+3. **DataAggregator with Background Polling**
+   - In-memory cache of `GameState` objects
+   - NBA live data polling every 5 seconds
+   - Betting odds polling every 10 seconds
+   - Automatic task cleanup on game unload/finish
+   - Graceful shutdown with task cancellation
+
+4. **WebSocket Integration**
+   - Receives Kalshi orderbook updates in real-time
+   - Updates GameState cache on each message
+   - Notifies subscribers of changes
+
+5. **Event Subscription System**
+   - `EventType.ORDERBOOK_UPDATE` - Kalshi price changes
+   - `EventType.NBA_UPDATE` - Score/period changes
+   - `EventType.ODDS_UPDATE` - Sportsbook odds changes
+   - `EventType.STATE_CHANGE` - Any state mutation
+   - Async callbacks for strategy integration
+
+**API Endpoints:**
+- `GET /api/aggregator/states` - List all active game states
+- `POST /api/aggregator/load/{game_id}` - Load game into aggregator
+- `GET /api/aggregator/state/{game_id}` - Get unified state
+- `DELETE /api/aggregator/unload/{game_id}` - Stop tracking game
+
+**Testing Results:**
+- ✅ FastAPI server starts without errors
+- ✅ Aggregator startup logs "Data aggregator started"
+- ✅ Load game flow works via test script
+- ✅ Background polling tasks start correctly
+- ✅ Event subscription system notifies callbacks
+- ✅ Graceful shutdown cancels all tasks
+
+**Notes:**
+- All I/O operations use async/await
+- All price/odds calculations use Decimal (no floats)
+- Errors in single game don't crash entire aggregator
+- Logging at appropriate levels (DEBUG/INFO/WARNING/ERROR)
+
+---
+
 ## ⏳ Up Next
 
-### Iteration 4 - Data Aggregation Layer (Not Started)
-**Planned Task:** Implement real-time data aggregation
+### Iteration 5 - Trading Strategies (Sharp Line Detection)
+**Planned Task:** Implement first trading strategy
 
 **TODO:**
-- [ ] Background task for polling NBA live data
-- [ ] Background task for polling betting odds
-- [ ] Data aggregation service
-- [ ] Event-driven architecture for strategy updates
+- [ ] Strategy base class with common interface
+- [ ] Sharp Line Detection strategy implementation
+- [ ] Strategy configuration from database
+- [ ] Integration with DataAggregator subscriptions
+- [ ] Signal generation and logging
 
 ---
 
@@ -247,11 +319,11 @@
 - [x] balldontlie.io API integration
 - [x] Configuration management
 
-### Phase 2: Data Pipeline (75% Complete)
+### Phase 2: Data Pipeline (100% Complete)
 - [x] Kalshi WebSocket connection
 - [x] NBA live data polling
 - [x] Betting odds fetching
-- [ ] Data aggregation layer (background tasks)
+- [x] Data aggregation layer (background tasks)
 
 ### Phase 3: Trading Engine (0% Complete)
 - [ ] Strategy 1: Sharp Line Detection
@@ -281,10 +353,10 @@
 
 ## 📈 Statistics
 
-- **Total Iterations Completed:** 3
-- **Total Files Created:** 45+
-- **Total Lines of Code:** ~6,500
-- **Estimated Project Completion:** 45%
+- **Total Iterations Completed:** 4
+- **Total Files Created:** 50+
+- **Total Lines of Code:** ~7,500
+- **Estimated Project Completion:** 55%
 
 ---
 

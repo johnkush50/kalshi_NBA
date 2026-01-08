@@ -237,14 +237,21 @@ class BallDontLieClient:
         """
         params = {}
         if game_ids:
-            params["game_ids[]"] = game_ids
+            # Format as repeated params: game_ids[]=123&game_ids[]=456
+            for gid in game_ids:
+                if "game_ids[]" not in params:
+                    params["game_ids[]"] = []
+                params["game_ids[]"].append(gid)
         if date:
             params["dates[]"] = [date]
         if sportsbooks:
             params["sportsbooks[]"] = sportsbooks
         
+        logger.debug(f"Fetching odds with params: {params}")
         result = await self._request("GET", "/nba/v2/odds", params=params)
-        return result.get("data", [])
+        odds_data = result.get("data", [])
+        logger.debug(f"Received {len(odds_data)} odds records")
+        return odds_data
     
     # =========================================================================
     # Game Matching (Kalshi <-> NBA)

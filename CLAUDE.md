@@ -13,37 +13,39 @@ Building a full-stack Kalshi NBA paper trading application. This system monitors
 ---
 
 ## Your Task This Session
-**Iteration 4: Data Aggregation Layer**
+**Iteration 5: Trading Strategies (Sharp Line Detection)**
 
-**Iteration 3 Status:** ✅ COMPLETE
+**Iteration 4 Status:** ✅ COMPLETE
 
-All balldontlie.io API integration is complete:
-- ✅ REST client with retry logic (client.py)
-- ✅ Custom exceptions (exceptions.py)
-- ✅ Database helpers (helpers.py)
-- ✅ Game matching (Kalshi ↔ NBA)
-- ✅ Betting odds fetching
-- ✅ Enhanced API endpoints (refresh-nba, refresh-odds)
-- ✅ Test script created
+All Data Aggregation Layer is complete:
+- ✅ Unified GameState model (game_state.py)
+- ✅ Odds calculation utilities with Decimal (odds_calculator.py)
+- ✅ DataAggregator with background polling (aggregator.py)
+- ✅ WebSocket integration for real-time orderbook updates
+- ✅ Event subscription system (ORDERBOOK_UPDATE, NBA_UPDATE, ODDS_UPDATE)
+- ✅ Aggregator API endpoints (aggregator.py routes)
+- ✅ Test script created (test_aggregator.py)
 
-**Next Steps (Iteration 4):**
-1. **DATA AGGREGATION SERVICE:**
-   - Create central data aggregator class
-   - Combine Kalshi orderbook + NBA data + betting odds
-   - Provide unified data interface for strategies
+**Next Steps (Iteration 5):**
+1. **STRATEGY BASE CLASS:**
+   - Create abstract base class for all strategies
+   - Define common interface: evaluate(), execute_trade()
+   - Configuration loading from database
 
-2. **BACKGROUND TASKS:**
-   - Polling task for NBA live data (every 5 seconds)
-   - Polling task for betting odds (every 10 seconds)
-   - Task coordination with Celery or asyncio
+2. **SHARP LINE DETECTION STRATEGY:**
+   - Compare Kalshi prices to sportsbook consensus
+   - Calculate divergence threshold
+   - Generate trade signals when threshold exceeded
+   - Subscribe to DataAggregator events
 
-3. **EVENT-DRIVEN UPDATES:**
-   - Publish data updates to strategies
-   - WebSocket push to frontend (future)
+3. **STRATEGY INTEGRATION:**
+   - Register strategy with DataAggregator
+   - Handle event callbacks
+   - Log signals and decisions
 
 4. **TESTING:**
-   - Integration tests for data flow
-   - Test background task scheduling
+   - Unit tests for odds comparison logic
+   - Integration tests with mock data
 
 ---
 

@@ -25,7 +25,7 @@ class TestSettings:
     def test_default_values(self):
         """Test default configuration values."""
         assert settings.kalshi_api_url == "https://api.elections.kalshi.com/trade-api/v2"
-        assert settings.kalshi_ws_url == "wss://trading-api.kalshi.com/trade-api/ws/v2"
+        assert settings.kalshi_ws_url == "wss://api.elections.kalshi.com/trade-api/ws/v2"
         assert settings.balldontlie_api_url == "https://api.balldontlie.io"
         assert settings.redis_url == "redis://localhost:6379"
         assert settings.environment == "development"

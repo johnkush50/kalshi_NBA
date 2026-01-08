@@ -1,7 +1,7 @@
 # System Architecture - Current State
 
 **Last Updated:** January 8, 2026
-**Project Phase:** Phase 1 - Core Infrastructure (Iteration 3 Complete)
+**Project Phase:** Phase 1 - Core Infrastructure (Iteration 4 Complete)
 
 ---
 
@@ -353,9 +353,181 @@ Async helper functions for:
 
 ---
 
-## 🚧 In Progress
+## ✅ Data Aggregation Layer (Iteration 4)
 
-*Ready to start Iteration 4 - Data Aggregation Layer*
+**Location:** `backend/models/game_state.py`, `backend/utils/odds_calculator.py`, `backend/engine/aggregator.py`, `backend/api/routes/aggregator.py`
+**Status:** ✅ Complete
+
+### Architecture Overview
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    Data Aggregator                          │
+│                                                              │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐      │
+│  │ Kalshi WS    │  │ NBA Poller   │  │ Odds Poller  │      │
+│  │ (real-time)  │  │ (5 seconds)  │  │ (10 seconds) │      │
+│  └──────┬───────┘  └──────┬───────┘  └──────┬───────┘      │
+│         │                 │                 │               │
+│         ▼                 ▼                 ▼               │
+│  ┌──────────────────────────────────────────────────────┐  │
+│  │              GameState Cache                          │  │
+│  │  • orderbooks: Dict[ticker, OrderbookState]          │  │
+│  │  • nba_state: NBALiveState                           │  │
+│  │  • odds: Dict[vendor, OddsState]                     │  │
+│  │  • implied_probabilities: Dict[ticker, Decimal]      │  │
+│  └──────────────────────┬───────────────────────────────┘  │
+│                         │                                   │
+│  ┌──────────────────────▼───────────────────────────────┐  │
+│  │           Event Subscription System                   │  │
+│  │  • on_orderbook_update(callback)                     │  │
+│  │  • on_nba_update(callback)                           │  │
+│  │  • on_odds_update(callback)                          │  │
+│  └──────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### GameState Model Documentation
+
+The `GameState` model provides a unified view of all game-related data:
+
+```python
+from backend.models.game_state import GameState, OrderbookState, NBALiveState, OddsState
+
+# GameState contains:
+# - game_id: str - UUID of the game
+# - event_ticker: str - Kalshi event ticker
+# - home_team, away_team: str - Team names
+# - status: str - 'scheduled', 'live', 'finished'
+# - orderbooks: Dict[str, OrderbookState] - Market orderbooks by ticker
+# - nba_state: Optional[NBALiveState] - Live NBA game data
+# - odds: Dict[str, OddsState] - Betting odds by vendor
+# - implied_probabilities: Dict[str, Decimal] - Calculated probabilities
+# - last_updated: datetime
+```
+
+### DataAggregator Responsibilities
+
+1. **Game State Management** - Maintains in-memory cache of `GameState` objects
+2. **Background Polling** - Coordinates NBA data (5s) and odds (10s) polling tasks
+3. **WebSocket Integration** - Receives Kalshi orderbook updates in real-time
+4. **Event Subscription** - Notifies strategies when data changes
+5. **Odds Calculation** - Converts American odds to implied probabilities using `Decimal`
+
+### Background Task Management
+
+```python
+from backend.engine.aggregator import DataAggregator
+
+aggregator = DataAggregator()
+
+# Background tasks are managed per-game:
+# - NBA polling task: Fetches live box scores every 5 seconds
+# - Odds polling task: Fetches betting odds every 10 seconds
+# - Tasks automatically stop when game is unloaded or finished
+
+# Lifecycle hooks in FastAPI:
+@app.on_event("startup")
+async def startup():
+    await aggregator.start()  # Logs "Data aggregator started"
+
+@app.on_event("shutdown")
+async def shutdown():
+    await aggregator.stop()  # Cancels all background tasks
+```
+
+### Code Examples
+
+**Loading a Game:**
+```python
+from backend.engine.aggregator import get_aggregator
+
+aggregator = get_aggregator()
+
+# Load game by ID (fetches from database and starts polling)
+game_state = await aggregator.load_game(game_id="uuid-here")
+
+# Or load from date selection
+game_state = await aggregator.load_game_by_date(date="2026-01-08", index=0)
+```
+
+**Subscribing to Updates:**
+```python
+from backend.engine.aggregator import get_aggregator, EventType
+
+aggregator = get_aggregator()
+
+# Define callback for orderbook updates
+async def on_orderbook_change(game_id: str, state: GameState):
+    print(f"Game {game_id} orderbook updated")
+    for ticker, ob in state.orderbooks.items():
+        print(f"  {ticker}: bid={ob.yes_bid}, ask={ob.yes_ask}")
+
+# Subscribe
+aggregator.subscribe(EventType.ORDERBOOK_UPDATE, on_orderbook_change)
+
+# Unsubscribe when done
+aggregator.unsubscribe(EventType.ORDERBOOK_UPDATE, on_orderbook_change)
+```
+
+**Accessing Unified State:**
+```python
+from backend.engine.aggregator import get_aggregator
+
+aggregator = get_aggregator()
+
+# Get current state for a game
+state = aggregator.get_state(game_id)
+
+if state:
+    # Access NBA data
+    if state.nba_state:
+        print(f"Score: {state.nba_state.home_score} - {state.nba_state.away_score}")
+        print(f"Period: {state.nba_state.period}, Time: {state.nba_state.time_remaining}")
+    
+    # Access orderbooks
+    for ticker, ob in state.orderbooks.items():
+        print(f"{ticker}: Yes bid/ask = {ob.yes_bid}/{ob.yes_ask}")
+    
+    # Access odds from multiple sportsbooks
+    for vendor, odds in state.odds.items():
+        print(f"{vendor}: ML Home={odds.moneyline_home}, Away={odds.moneyline_away}")
+    
+    # Access calculated implied probabilities
+    for ticker, prob in state.implied_probabilities.items():
+        print(f"{ticker}: {prob:.2%} implied probability")
+```
+
+### API Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `GET /api/aggregator/states` | GET | List all active game states |
+| `POST /api/aggregator/load/{game_id}` | POST | Load a game into the aggregator |
+| `GET /api/aggregator/state/{game_id}` | GET | Get unified state for a game |
+| `DELETE /api/aggregator/unload/{game_id}` | DELETE | Stop tracking a game |
+
+### Odds Calculator Utilities
+
+```python
+from backend.utils.odds_calculator import (
+    american_to_probability,
+    probability_to_american,
+    calculate_implied_probability,
+    calculate_expected_value
+)
+from decimal import Decimal
+
+# Convert American odds to implied probability
+prob = american_to_probability(-150)  # Returns Decimal("0.6")
+prob = american_to_probability(+200)  # Returns Decimal("0.333...")
+
+# Calculate EV
+ev = calculate_expected_value(
+    true_probability=Decimal("0.55"),
+    kalshi_price=Decimal("0.48")
+)  # Returns positive EV if profitable
+```
 
 ---
 
@@ -379,9 +551,20 @@ Async helper functions for:
 - ✅ Betting odds fetching
 - ✅ Auto game matching logic
 
+### Data Aggregation Layer
+**Priority:** High  
+**Status:** ✅ Complete (Iteration 4)
+
+- ✅ Unified GameState model
+- ✅ Odds calculation utilities (Decimal-based)
+- ✅ DataAggregator with background polling
+- ✅ WebSocket integration
+- ✅ Event subscription system
+- ✅ Aggregator API endpoints
+
 ### Trading Engine
 **Priority:** High  
-**Next Up:** Iteration 4-8
+**Next Up:** Iteration 5-8
 
 - ❌ Strategy base class
 - ❌ Sharp Line Detection strategy

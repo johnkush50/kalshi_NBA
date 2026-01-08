@@ -648,6 +648,185 @@ async def poll_live_nba_data(game_id: int, nba_game_id: int):
 
 ---
 
+### 6.3 Data Aggregation Layer
+
+The Data Aggregation Layer provides a unified interface for accessing all game-related data (Kalshi orderbooks, NBA live data, betting odds) through a single `GameState` model and coordinates background polling tasks.
+
+#### 6.3.1 GameState Model
+
+```python
+from decimal import Decimal
+from datetime import datetime
+from typing import Optional, Dict, List
+from pydantic import BaseModel
+
+class OrderbookState(BaseModel):
+    """Current orderbook state for a market."""
+    ticker: str
+    yes_bid: Optional[Decimal] = None
+    yes_ask: Optional[Decimal] = None
+    no_bid: Optional[Decimal] = None
+    no_ask: Optional[Decimal] = None
+    yes_bid_size: Optional[int] = None
+    yes_ask_size: Optional[int] = None
+    last_updated: datetime
+
+class NBALiveState(BaseModel):
+    """Current NBA game state."""
+    period: int
+    time_remaining: str
+    home_score: int
+    away_score: int
+    game_status: str
+    last_updated: datetime
+
+class OddsState(BaseModel):
+    """Aggregated betting odds from sportsbooks."""
+    vendor: str
+    moneyline_home: Optional[int] = None
+    moneyline_away: Optional[int] = None
+    spread_home_value: Optional[Decimal] = None
+    spread_home_odds: Optional[int] = None
+    total_value: Optional[Decimal] = None
+    total_over_odds: Optional[int] = None
+    total_under_odds: Optional[int] = None
+    last_updated: datetime
+
+class GameState(BaseModel):
+    """Unified game state combining all data sources."""
+    game_id: str
+    event_ticker: str
+    home_team: str
+    away_team: str
+    game_date: datetime
+    status: str  # 'scheduled', 'live', 'finished'
+    
+    # Kalshi orderbooks by market ticker
+    orderbooks: Dict[str, OrderbookState] = {}
+    
+    # NBA live data
+    nba_state: Optional[NBALiveState] = None
+    
+    # Betting odds by vendor
+    odds: Dict[str, OddsState] = {}
+    
+    # Calculated fields
+    implied_probabilities: Dict[str, Decimal] = {}
+    
+    last_updated: datetime
+```
+
+#### 6.3.2 Data Flow Diagram
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    Data Aggregator                          │
+│                                                              │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐      │
+│  │ Kalshi WS    │  │ NBA Poller   │  │ Odds Poller  │      │
+│  │ (real-time)  │  │ (5 seconds)  │  │ (10 seconds) │      │
+│  └──────┬───────┘  └──────┬───────┘  └──────┬───────┘      │
+│         │                 │                 │               │
+│         ▼                 ▼                 ▼               │
+│  ┌──────────────────────────────────────────────────┐      │
+│  │              GameState Cache                      │      │
+│  │  • orderbooks: Dict[ticker, OrderbookState]      │      │
+│  │  • nba_state: NBALiveState                       │      │
+│  │  • odds: Dict[vendor, OddsState]                 │      │
+│  │  • implied_probabilities: Dict[ticker, Decimal]  │      │
+│  └──────────────────────┬───────────────────────────┘      │
+│                         │                                   │
+│  ┌──────────────────────▼───────────────────────────┐      │
+│  │           Event Subscription System               │      │
+│  │  • on_orderbook_update(callback)                 │      │
+│  │  • on_nba_update(callback)                       │      │
+│  │  • on_odds_update(callback)                      │      │
+│  └──────────────────────────────────────────────────┘      │
+└─────────────────────────────────────────────────────────────┘
+                          │
+                          ▼
+┌─────────────────────────────────────────────────────────────┐
+│                  Strategy Engine                            │
+│  • Receives unified GameState                               │
+│  • Evaluates trading signals                                │
+│  • Executes simulated orders                                │
+└─────────────────────────────────────────────────────────────┘
+```
+
+#### 6.3.3 Polling Frequencies
+
+| Data Source | Polling Frequency | Notes |
+|-------------|-------------------|-------|
+| Kalshi Orderbook | Real-time (WebSocket) | Snapshot + delta updates |
+| NBA Live Data | 5 seconds | During live games only |
+| Betting Odds | 10 seconds | During live games only |
+| P&L Calculation | 5 seconds | Triggered by orderbook updates |
+
+#### 6.3.4 Event Subscription System
+
+```python
+from typing import Callable, Awaitable
+from enum import Enum
+
+class EventType(Enum):
+    ORDERBOOK_UPDATE = "orderbook_update"
+    NBA_UPDATE = "nba_update"
+    ODDS_UPDATE = "odds_update"
+    STATE_CHANGE = "state_change"
+
+class DataAggregator:
+    """Central data aggregator with event subscription."""
+    
+    def __init__(self):
+        self._game_states: Dict[str, GameState] = {}
+        self._subscribers: Dict[EventType, List[Callable]] = {
+            event_type: [] for event_type in EventType
+        }
+        self._polling_tasks: Dict[str, asyncio.Task] = {}
+    
+    def subscribe(
+        self, 
+        event_type: EventType, 
+        callback: Callable[[str, GameState], Awaitable[None]]
+    ) -> None:
+        """Subscribe to data updates."""
+        self._subscribers[event_type].append(callback)
+    
+    def unsubscribe(
+        self, 
+        event_type: EventType, 
+        callback: Callable
+    ) -> None:
+        """Unsubscribe from data updates."""
+        self._subscribers[event_type].remove(callback)
+    
+    async def _notify_subscribers(
+        self, 
+        event_type: EventType, 
+        game_id: str
+    ) -> None:
+        """Notify all subscribers of an event."""
+        state = self._game_states.get(game_id)
+        if state:
+            for callback in self._subscribers[event_type]:
+                try:
+                    await callback(game_id, state)
+                except Exception as e:
+                    logger.error(f"Subscriber callback error: {e}")
+```
+
+#### 6.3.5 API Endpoints for Aggregator
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/aggregator/states` | GET | List all active game states |
+| `/api/aggregator/load/{game_id}` | POST | Load a game into the aggregator |
+| `/api/aggregator/state/{game_id}` | GET | Get unified state for a game |
+| `/api/aggregator/unload/{game_id}` | DELETE | Stop tracking a game |
+| `/api/aggregator/subscribe` | WebSocket | Subscribe to real-time updates |
+
+---
+
 ## 7. Order Execution Simulation
 
 ### 7.1 Execution Logic

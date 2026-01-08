@@ -11,7 +11,7 @@ import logging
 
 from backend.config.settings import settings
 from backend.utils.logger import setup_logging
-from backend.api.routes import health, games, strategies, trading
+from backend.api.routes import health, games, strategies, trading, aggregator
 
 # Initialize logging
 setup_logging()
@@ -80,6 +80,13 @@ app.include_router(
     tags=["Trading"]
 )
 
+# Aggregator endpoints
+app.include_router(
+    aggregator.router,
+    prefix="/api/aggregator",
+    tags=["Aggregator"]
+)
+
 
 # ============================================================================
 # Startup and Shutdown Events
@@ -111,6 +118,15 @@ async def startup_event():
     except Exception as e:
         logger.error(f"✗ Error checking Supabase connection: {e}", exc_info=True)
 
+    # Start data aggregator
+    try:
+        from backend.engine.aggregator import get_aggregator
+        agg = get_aggregator()
+        await agg.start()
+        logger.info("✓ Data aggregator started")
+    except Exception as e:
+        logger.error(f"✗ Failed to start data aggregator: {e}")
+
     logger.info("Application startup complete")
     logger.info("=" * 60)
 
@@ -126,7 +142,15 @@ async def shutdown_event():
     logger.info("Shutting down Kalshi NBA Paper Trading Application")
     logger.info("=" * 60)
 
-    # Add cleanup logic here (close database connections, etc.)
+    # Stop data aggregator
+    try:
+        from backend.engine.aggregator import get_aggregator
+        agg = get_aggregator()
+        await agg.stop()
+        logger.info("✓ Data aggregator stopped")
+    except Exception as e:
+        logger.error(f"✗ Error stopping data aggregator: {e}")
+
     logger.info("Cleanup complete")
     logger.info("Application shutdown complete")
 
