@@ -19,8 +19,15 @@ from backend.integrations.kalshi.exceptions import (
     KalshiAuthError,
     KalshiNotFoundError,
 )
+from backend.integrations.balldontlie.client import BallDontLieClient
+from backend.integrations.balldontlie.exceptions import (
+    BallDontLieAPIError,
+    BallDontLieAuthError,
+    GameMatchError,
+)
 from backend.utils.ticker_parser import extract_game_info_from_kalshi_ticker
 from backend.config.supabase import get_supabase_client
+from backend.database import helpers as db
 
 logger = logging.getLogger(__name__)
 
@@ -152,6 +159,41 @@ async def load_game(request: LoadGameRequest):
         # Store in database
         game_id = await _store_game_in_database(game_info, event_ticker, event, all_markets)
         
+        # Try to match to NBA game and fetch initial odds
+        nba_game_id = None
+        nba_match_status = "not_attempted"
+        try:
+            bdl_client = BallDontLieClient()
+            nba_game = await bdl_client.match_kalshi_game(event_ticker)
+            nba_game_id = nba_game.get("id")
+            
+            # Update game with NBA game ID
+            supabase = get_supabase_client()
+            supabase.table("games").update({"nba_game_id": nba_game_id}).eq("id", game_id).execute()
+            
+            nba_match_status = "matched"
+            logger.info(f"Matched NBA game ID {nba_game_id} for {event_ticker}")
+            
+            # Fetch initial odds
+            try:
+                odds_data = await bdl_client.get_odds(game_ids=[nba_game_id])
+                if odds_data:
+                    await _store_odds_data(game_id, nba_game_id, odds_data)
+                    logger.info(f"Stored initial odds for game {game_id}")
+            except Exception as odds_error:
+                logger.warning(f"Failed to fetch initial odds: {odds_error}")
+            
+            await bdl_client.close()
+        except GameMatchError as e:
+            nba_match_status = f"no_match: {str(e)}"
+            logger.warning(f"Could not match NBA game: {e}")
+        except BallDontLieAuthError as e:
+            nba_match_status = "auth_error"
+            logger.error(f"BallDontLie auth error: {e}")
+        except Exception as e:
+            nba_match_status = f"error: {str(e)}"
+            logger.error(f"Error matching NBA game: {e}")
+        
         return {
             "success": True,
             "game_id": game_id,
@@ -162,6 +204,8 @@ async def load_game(request: LoadGameRequest):
             "title": event.get("title", ""),
             "market_count": len(all_markets),
             "markets": all_markets,
+            "nba_game_id": nba_game_id,
+            "nba_match_status": nba_match_status,
         }
         
     except HTTPException:
@@ -303,6 +347,51 @@ async def _store_game_in_database(
         return str(uuid.uuid4())
 
 
+async def _store_odds_data(game_id: str, nba_game_id: int, odds_data: List[dict]) -> None:
+    """
+    Store betting odds data in the database.
+    
+    Args:
+        game_id: Internal game UUID
+        nba_game_id: NBA game ID from balldontlie.io
+        odds_data: List of odds objects from API
+    """
+    from datetime import datetime
+    
+    supabase = get_supabase_client()
+    
+    for odds in odds_data:
+        for book in odds.get("sportsbooks", []):
+            vendor = book.get("name", "unknown")
+            
+            odds_record = {
+                "game_id": game_id,
+                "nba_game_id": nba_game_id,
+                "timestamp": datetime.utcnow().isoformat(),
+                "vendor": vendor,
+            }
+            
+            for line in book.get("odds", []):
+                line_type = line.get("type", "")
+                if line_type == "moneyline":
+                    odds_record["moneyline_home"] = line.get("home_odds")
+                    odds_record["moneyline_away"] = line.get("away_odds")
+                elif line_type == "spread":
+                    odds_record["spread_home_value"] = line.get("home_spread")
+                    odds_record["spread_home_odds"] = line.get("home_odds")
+                    odds_record["spread_away_value"] = line.get("away_spread")
+                    odds_record["spread_away_odds"] = line.get("away_odds")
+                elif line_type == "total":
+                    odds_record["total_value"] = line.get("total")
+                    odds_record["total_over_odds"] = line.get("over_odds")
+                    odds_record["total_under_odds"] = line.get("under_odds")
+            
+            try:
+                supabase.table("betting_odds").insert(odds_record).execute()
+            except Exception as e:
+                logger.warning(f"Failed to store odds for {vendor}: {e}")
+
+
 @router.get("/{game_id}")
 async def get_game(game_id: str):
     """
@@ -344,9 +433,37 @@ async def get_game(game_id: str):
             if orderbook_response.data:
                 market["latest_orderbook"] = orderbook_response.data[0]
         
+        # Fetch latest NBA live data (if available)
+        nba_live_data = None
+        nba_data_response = (
+            supabase.table("nba_live_data")
+            .select("*")
+            .eq("game_id", game_id)
+            .order("timestamp", desc=True)
+            .limit(1)
+            .execute()
+        )
+        if nba_data_response.data:
+            nba_live_data = nba_data_response.data[0]
+        
+        # Fetch latest betting odds
+        betting_odds = []
+        odds_response = (
+            supabase.table("betting_odds")
+            .select("*")
+            .eq("game_id", game_id)
+            .order("timestamp", desc=True)
+            .limit(10)
+            .execute()
+        )
+        if odds_response.data:
+            betting_odds = odds_response.data
+        
         return {
             "game": game,
             "markets": markets,
+            "nba_live_data": nba_live_data,
+            "betting_odds": betting_odds,
         }
         
     except HTTPException:
@@ -448,3 +565,143 @@ async def list_games(
     except Exception as e:
         logger.error(f"Failed to list games: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to list games")
+
+
+@router.post("/{game_id}/refresh-nba")
+async def refresh_nba_data(game_id: str):
+    """
+    Fetch latest NBA data for a game from balldontlie.io.
+    
+    Args:
+        game_id: Game UUID.
+    
+    Returns:
+        Fresh NBA game data and status.
+    """
+    logger.info(f"Refreshing NBA data for game: {game_id}")
+    
+    try:
+        supabase = get_supabase_client()
+        
+        # Fetch game
+        game_response = supabase.table("games").select("*").eq("id", game_id).execute()
+        
+        if not game_response.data:
+            raise HTTPException(status_code=404, detail="Game not found")
+        
+        game = game_response.data[0]
+        nba_game_id = game.get("nba_game_id")
+        
+        if not nba_game_id:
+            raise HTTPException(
+                status_code=400,
+                detail="Game has no NBA game ID. Try re-matching the game first."
+            )
+        
+        # Fetch fresh data from balldontlie.io
+        bdl_client = BallDontLieClient()
+        try:
+            nba_game = await bdl_client.get_game(nba_game_id)
+            
+            # Store live data if game has scores
+            if nba_game.get("home_team_score") is not None:
+                from datetime import datetime
+                
+                live_data = {
+                    "game_id": game_id,
+                    "timestamp": datetime.utcnow().isoformat(),
+                    "period": nba_game.get("period", 0),
+                    "time_remaining": nba_game.get("time", ""),
+                    "home_score": nba_game.get("home_team_score", 0),
+                    "away_score": nba_game.get("visitor_team_score", 0),
+                    "game_status": nba_game.get("status", "unknown"),
+                    "raw_data": nba_game,
+                }
+                
+                supabase.table("nba_live_data").insert(live_data).execute()
+                
+                # Update game status if changed
+                game_status = nba_game.get("status", "").lower()
+                if "final" in game_status:
+                    supabase.table("games").update({"status": "finished"}).eq("id", game_id).execute()
+                elif nba_game.get("period", 0) > 0:
+                    supabase.table("games").update({"status": "live"}).eq("id", game_id).execute()
+            
+            await bdl_client.close()
+            
+            return {
+                "success": True,
+                "game_id": game_id,
+                "nba_game_id": nba_game_id,
+                "nba_data": nba_game,
+            }
+            
+        except Exception as e:
+            await bdl_client.close()
+            raise HTTPException(status_code=502, detail=f"Failed to fetch NBA data: {str(e)}")
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to refresh NBA data: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to refresh NBA data")
+
+
+@router.post("/{game_id}/refresh-odds")
+async def refresh_odds(game_id: str):
+    """
+    Fetch latest betting odds for a game from balldontlie.io.
+    
+    Args:
+        game_id: Game UUID.
+    
+    Returns:
+        Fresh betting odds data.
+    """
+    logger.info(f"Refreshing odds for game: {game_id}")
+    
+    try:
+        supabase = get_supabase_client()
+        
+        # Fetch game
+        game_response = supabase.table("games").select("*").eq("id", game_id).execute()
+        
+        if not game_response.data:
+            raise HTTPException(status_code=404, detail="Game not found")
+        
+        game = game_response.data[0]
+        nba_game_id = game.get("nba_game_id")
+        
+        if not nba_game_id:
+            raise HTTPException(
+                status_code=400,
+                detail="Game has no NBA game ID. Try re-matching the game first."
+            )
+        
+        # Fetch fresh odds from balldontlie.io
+        bdl_client = BallDontLieClient()
+        try:
+            odds_data = await bdl_client.get_odds(game_ids=[nba_game_id])
+            
+            if odds_data:
+                await _store_odds_data(game_id, nba_game_id, odds_data)
+            
+            await bdl_client.close()
+            
+            return {
+                "success": True,
+                "game_id": game_id,
+                "nba_game_id": nba_game_id,
+                "odds_count": len(odds_data),
+                "odds_data": odds_data,
+            }
+            
+        except Exception as e:
+            await bdl_client.close()
+            raise HTTPException(status_code=502, detail=f"Failed to fetch odds: {str(e)}")
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to refresh odds: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to refresh odds")

@@ -13,39 +13,37 @@ Building a full-stack Kalshi NBA paper trading application. This system monitors
 ---
 
 ## Your Task This Session
-**Iteration 3: balldontlie.io Integration**
+**Iteration 4: Data Aggregation Layer**
 
-**Iteration 2 Status:** ✅ COMPLETE
+**Iteration 3 Status:** ✅ COMPLETE
 
-All Kalshi API integration is complete:
-- ✅ RSA-PSS authentication (auth.py)
+All balldontlie.io API integration is complete:
 - ✅ REST client with retry logic (client.py)
-- ✅ WebSocket client with reconnection (websocket.py)
-- ✅ Game selection by date feature
-- ✅ All API endpoints functional
-- ✅ Ticker parser bug fixed
+- ✅ Custom exceptions (exceptions.py)
+- ✅ Database helpers (helpers.py)
+- ✅ Game matching (Kalshi ↔ NBA)
+- ✅ Betting odds fetching
+- ✅ Enhanced API endpoints (refresh-nba, refresh-odds)
 - ✅ Test script created
 
-**Next Steps (Iteration 3):**
-1. **balldontlie.io REST API CLIENT:**
-   - Implement client in `backend/integrations/balldontlie/client.py`
-   - Authentication with API key
-   - Game fetching methods
-   - Live box score polling
-   - Betting odds fetching
+**Next Steps (Iteration 4):**
+1. **DATA AGGREGATION SERVICE:**
+   - Create central data aggregator class
+   - Combine Kalshi orderbook + NBA data + betting odds
+   - Provide unified data interface for strategies
 
-2. **NBA GAME MATCHING:**
-   - Match Kalshi games to NBA games by team abbreviations and date
-   - Store NBA game ID in games table
+2. **BACKGROUND TASKS:**
+   - Polling task for NBA live data (every 5 seconds)
+   - Polling task for betting odds (every 10 seconds)
+   - Task coordination with Celery or asyncio
 
-3. **LIVE DATA POLLING:**
-   - Implement background task for polling live game data
-   - Store box scores in nba_live_data table
-   - Store betting odds in betting_odds table
+3. **EVENT-DRIVEN UPDATES:**
+   - Publish data updates to strategies
+   - WebSocket push to frontend (future)
 
 4. **TESTING:**
-   - Add integration tests for balldontlie.io client
-   - Test game matching logic
+   - Integration tests for data flow
+   - Test background task scheduling
 
 ---
 

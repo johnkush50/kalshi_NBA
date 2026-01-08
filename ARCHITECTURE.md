@@ -1,7 +1,7 @@
 # System Architecture - Current State
 
 **Last Updated:** January 8, 2026
-**Project Phase:** Phase 1 - Core Infrastructure (Iteration 2 Complete)
+**Project Phase:** Phase 1 - Core Infrastructure (Iteration 3 Complete)
 
 ---
 
@@ -237,9 +237,125 @@ async def stream_orderbook():
 
 ---
 
+## ✅ balldontlie.io Integration (Iteration 3)
+
+**Location:** `backend/integrations/balldontlie/`
+**Status:** ✅ Complete
+
+### Architecture Overview
+
+```
+backend/integrations/balldontlie/
+├── __init__.py
+├── exceptions.py     # Custom exception classes
+└── client.py         # REST API client with retry logic
+```
+
+### Authentication
+
+balldontlie.io uses simple API key authentication:
+- API key goes in `Authorization` header
+- **NO "Bearer" prefix** - just the raw API key
+- Rate limiting handled with tenacity retry logic
+
+### API Path Structure
+
+**Important:** NBA endpoints use sport-specific prefixes:
+- Teams/Games/Box Scores: `/v1/teams`, `/v1/games`, `/v1/box_scores`
+- Odds: `/nba/v2/odds` (note the `/nba` prefix for v2 endpoints)
+- Date parameters use array format: `dates[]=2026-01-08`
+
+### Game Matching Flow
+
+```
+Kalshi Event Ticker (e.g., "KXNBAGAME-26JAN08DALUTA")
+        ↓
+    ticker_parser.py
+        ↓
+{date: "2026-01-08", away: "DAL", home: "UTA"}
+        ↓
+    balldontlie.io /v1/games?dates[]=2026-01-08
+        ↓
+    Match by team abbreviations
+        ↓
+    NBA Game ID stored in database
+```
+
+### Code Examples
+
+**Testing Authentication:**
+```bash
+python scripts/test_balldontlie.py --test-auth
+```
+
+**Listing Games for a Date:**
+```python
+from backend.integrations.balldontlie.client import BallDontLieClient
+
+async def list_games():
+    client = BallDontLieClient()
+    games = await client.get_games_for_date("2026-01-08")
+    for game in games:
+        visitor = game["visitor_team"]["abbreviation"]
+        home = game["home_team"]["abbreviation"]
+        print(f"{visitor} @ {home}")
+    await client.close()
+```
+
+**Matching Kalshi Game to NBA Game:**
+```python
+from backend.integrations.balldontlie.client import BallDontLieClient
+
+async def match_game():
+    client = BallDontLieClient()
+    nba_game = await client.match_kalshi_game("KXNBAGAME-26JAN08DALUTA")
+    print(f"NBA Game ID: {nba_game['id']}")
+    await client.close()
+```
+
+**Fetching Betting Odds:**
+```python
+async def get_odds():
+    client = BallDontLieClient()
+    odds = await client.get_odds(date="2026-01-08")
+    for item in odds:
+        for book in item.get("sportsbooks", []):
+            print(f"{book['name']}: {book['odds']}")
+    await client.close()
+```
+
+### API Endpoints Used
+
+| Endpoint | Purpose |
+|----------|----------|
+| GET /v1/teams | Get all NBA teams |
+| GET /v1/games | Get games by date |
+| GET /v1/games/{id} | Get specific game |
+| GET /v1/box_scores | Get box scores |
+| GET /v1/box_scores/live | Get live box scores |
+| GET /v2/odds | Get betting odds |
+
+### Database Helpers
+
+**Location:** `backend/database/helpers.py`
+
+Async helper functions for:
+- `create_game()`, `get_game_by_id()`, `update_game()`
+- `create_kalshi_market()`, `get_markets_for_game()`
+- `store_nba_live_data()`, `get_latest_nba_data()`
+- `store_betting_odds()`, `get_latest_odds()`
+- `store_orderbook_snapshot()`, `get_latest_orderbook()`
+
+### New API Endpoints
+
+- `POST /api/games/{game_id}/refresh-nba` - Fetch latest NBA data
+- `POST /api/games/{game_id}/refresh-odds` - Fetch latest betting odds
+
+---
+
 ## 🚧 In Progress
 
-*Ready to start Iteration 3 - balldontlie.io Integration*
+*Ready to start Iteration 4 - Data Aggregation Layer*
 
 ---
 
@@ -253,15 +369,15 @@ async def stream_orderbook():
 
 ### API Integrations Remaining
 **Priority:** High  
-**Next Up:** Iteration 3
+**Status:** ✅ Complete
 
 - ✅ Kalshi REST API client
 - ✅ Kalshi WebSocket connection
 - ✅ Orderbook processing
-- ❌ balldontlie.io REST API client
-- ❌ NBA live data polling
-- ❌ Betting odds fetching
-- ❌ Auto game matching logic
+- ✅ balldontlie.io REST API client
+- ✅ NBA live data polling
+- ✅ Betting odds fetching
+- ✅ Auto game matching logic
 
 ### Trading Engine
 **Priority:** High  

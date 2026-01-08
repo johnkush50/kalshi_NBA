@@ -208,10 +208,12 @@ REDIS_URL=redis://localhost:6379
 
 ### Games (✅ Functional)
 - `GET /api/games/available?date=YYYY-MM-DD` - List available NBA games for date
-- `POST /api/games/load` - Load game by ticker or date+index
-- `GET /api/games/{game_id}` - Get game with markets
+- `POST /api/games/load` - Load game by ticker or date+index (auto-matches NBA)
+- `GET /api/games/{game_id}` - Get game with markets, NBA data, and odds
 - `GET /api/games/` - List all loaded games
 - `DELETE /api/games/{game_id}` - Delete game
+- `POST /api/games/{game_id}/refresh-nba` - Fetch latest NBA data
+- `POST /api/games/{game_id}/refresh-odds` - Fetch latest betting odds
 
 ### Strategies (Skeleton)
 - `GET /api/strategies/` - List all strategies
@@ -267,11 +269,19 @@ pytest -v
 - [x] Test script for CLI testing
 - [x] Fixed ticker parser date bug
 
+**✅ Iteration 3 Complete: balldontlie.io API Integration**
+- [x] REST client with retry logic (tenacity)
+- [x] Game matching (Kalshi ↔ NBA)
+- [x] Betting odds fetching
+- [x] Database helpers for all tables
+- [x] Enhanced API endpoints
+- [x] Test script for balldontlie.io
+
 **⏳ Next Steps:**
-- Iteration 3: balldontlie.io API integration
-- Iteration 4: Implement trading strategies
-- Iteration 5: Order execution engine
-- Iteration 6: Frontend development (Next.js)
+- Iteration 4: Data aggregation layer
+- Iteration 5: Implement trading strategies
+- Iteration 6: Order execution engine
+- Iteration 7: Frontend development (Next.js)
 
 See `PROGRESS.md` for detailed iteration tracking.
 
@@ -284,6 +294,53 @@ See `PROGRESS.md` for detailed iteration tracking.
 5. **Correlation Play** - Identify mispriced spread relationships
 
 See `kalshi_nba_paper_trading_prd.md` for detailed strategy specifications.
+
+## 🏀 Matching Kalshi Games to NBA Data
+
+### How Game Matching Works
+
+1. **Parse Kalshi Ticker** - Extract date and team abbreviations
+   ```
+   KXNBAGAME-26JAN08DALUTA → {date: "2026-01-08", away: "DAL", home: "UTA"}
+   ```
+
+2. **Query balldontlie.io** - Fetch NBA games for that date
+   ```
+   GET /v1/games?dates[]=2026-01-08
+   ```
+
+3. **Match Teams** - Find game with matching away/home abbreviations
+
+4. **Store NBA Game ID** - Save in database for future data fetching
+
+### Testing balldontlie.io Integration
+
+```bash
+# Test authentication
+python scripts/test_balldontlie.py --test-auth
+
+# List NBA games for a date
+python scripts/test_balldontlie.py --list-games --date 2026-01-08
+
+# Match a Kalshi ticker to NBA game
+python scripts/test_balldontlie.py --match-kalshi --ticker KXNBAGAME-26JAN08DALUTA
+
+# Fetch betting odds
+python scripts/test_balldontlie.py --get-odds --date 2026-01-08
+
+# List all NBA teams
+python scripts/test_balldontlie.py --list-teams
+```
+
+### Refreshing NBA Data via API
+
+```bash
+# Refresh NBA live data for a game
+curl -X POST http://localhost:8000/api/games/{game_id}/refresh-nba
+
+# Refresh betting odds for a game
+curl -X POST http://localhost:8000/api/games/{game_id}/refresh-odds
+```
 
 ## 🛠️ Tech Stack
 
@@ -338,5 +395,5 @@ This is a personal project. For issues or suggestions, please open an issue on G
 
 ---
 
-**Status**: ✅ Iteration 2 Complete - Kalshi API Integration Ready
+**Status**: ✅ Iteration 3 Complete - balldontlie.io Integration Ready
 **Last Updated**: January 8, 2026
