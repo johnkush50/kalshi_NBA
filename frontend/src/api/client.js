@@ -29,7 +29,22 @@ export const getLoadedGames = () =>
 export const getGameState = (gameId) => 
   fetchApi(`/aggregator/state/${gameId}`)
 
-export const loadGame = (gameId) => 
+export const loadGameByTicker = async (eventTicker) => {
+  // First load game into database
+  const result = await fetchApi('/games/load', {
+    method: 'POST',
+    body: JSON.stringify({ event_ticker: eventTicker }),
+  })
+  
+  // Then load into aggregator for real-time tracking
+  if (result.game_id) {
+    await fetchApi(`/aggregator/load/${result.game_id}`, { method: 'POST' })
+  }
+  
+  return result
+}
+
+export const loadGameToAggregator = (gameId) => 
   fetchApi(`/aggregator/load/${gameId}`, { method: 'POST' })
 
 export const unloadGame = (gameId) => 

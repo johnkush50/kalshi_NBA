@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Play, Square, ChevronDown, ChevronUp } from 'lucide-react'
-import { loadGame, unloadGame } from '../../api/client'
+import { loadGameToAggregator, unloadGame } from '../../api/client'
 import { formatPercent } from '../../utils/formatters'
 import MarketTable from './MarketTable'
 
@@ -10,7 +10,7 @@ export default function GameCard({ game, isLoaded = false }) {
   const queryClient = useQueryClient()
   
   const loadMutation = useMutation({
-    mutationFn: () => loadGame(game.game_id || game.id),
+    mutationFn: () => loadGameToAggregator(game.game_id || game.id),
     onSuccess: () => queryClient.invalidateQueries(['loadedGames']),
   })
   
