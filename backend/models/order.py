@@ -150,3 +150,66 @@ class OrderExecutionResponse(BaseModel):
                 "error": None
             }
         }
+
+
+# ============================================================================
+# Execution Engine Models
+# ============================================================================
+
+class ExecutionPosition(BaseModel):
+    """
+    Position model for execution engine tracking.
+    
+    Lightweight position tracking used internally by the execution engine.
+    """
+    id: str = Field(default_factory=lambda: str(__import__('uuid').uuid4()))
+    game_id: str
+    market_ticker: str
+    side: OrderSide
+    quantity: int = Field(default=0, description="Current position size")
+    avg_entry_price: Decimal = Field(default=Decimal("0"), description="Average entry price")
+    total_cost: Decimal = Field(default=Decimal("0"), description="Total cost basis")
+    unrealized_pnl: Decimal = Field(default=Decimal("0"))
+    realized_pnl: Decimal = Field(default=Decimal("0"))
+    opened_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    closed_at: Optional[datetime] = Field(default=None)
+    is_open: bool = Field(default=True)
+
+    class Config:
+        json_encoders = {
+            Decimal: lambda v: float(v),
+            datetime: lambda v: v.isoformat()
+        }
+
+
+class ExecutionResult(BaseModel):
+    """Result of an order execution attempt."""
+    success: bool
+    order: Optional[SimulatedOrder] = None
+    error: Optional[str] = None
+    position_updated: bool = False
+    new_position: Optional[ExecutionPosition] = None
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "success": True,
+                "order": {
+                    "id": "123e4567-e89b-12d3-a456-426614174000",
+                    "market_ticker": "KXNBAGAME-26JAN08DALUTA-DAL",
+                    "side": "yes",
+                    "quantity": 10,
+                    "filled_price": 45.0,
+                    "status": "filled"
+                },
+                "error": None,
+                "position_updated": True,
+                "new_position": {
+                    "market_ticker": "KXNBAGAME-26JAN08DALUTA-DAL",
+                    "side": "yes",
+                    "quantity": 10,
+                    "avg_entry_price": 45.0
+                }
+            }
+        }

@@ -1,7 +1,7 @@
 # System Architecture - Current State
 
 **Last Updated:** January 8, 2026
-**Project Phase:** Phase 3 - Trading Engine (Iteration 5 Complete)
+**Project Phase:** Phase 4 - Execution Engine (Iteration 10 Complete)
 
 ---
 
@@ -1096,6 +1096,172 @@ python scripts/test_strategy.py --test-correlation --game-id <UUID>
 2. **Vig Consideration** - Complementary markets naturally sum > 100% due to vig
 3. **Best Conditions** - Works when one market updates before another (latency arb)
 4. **Ticker Parsing** - Spread tickers expected format: `KXNBASPREAD-{EVENT}-{TEAM}{VALUE}`
+
+---
+
+## ✅ Order Execution Engine (Iteration 10)
+
+**Location:** `backend/engine/execution.py`, `backend/api/routes/execution.py`
+**Status:** ✅ Complete
+
+### Architecture Overview
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    Execution Engine                          │
+│                                                              │
+│  ┌──────────────────────────────────────────────────────┐  │
+│  │              Signal Processing                        │  │
+│  │  • Receive TradeSignal from strategies               │  │
+│  │  • Convert to SimulatedOrder                         │  │
+│  │  • Validate against risk limits                      │  │
+│  └──────────────────────┬───────────────────────────────┘  │
+│                         │                                   │
+│  ┌──────────────────────▼───────────────────────────────┐  │
+│  │              Order Execution                          │  │
+│  │  • Get current ask price from orderbook              │  │
+│  │  • Simulate immediate fill                           │  │
+│  │  • Store order in database                           │  │
+│  └──────────────────────┬───────────────────────────────┘  │
+│                         │                                   │
+│  ┌──────────────────────▼───────────────────────────────┐  │
+│  │              Position Management                      │  │
+│  │  • Update position size and avg price                │  │
+│  │  • Track cost basis                                  │  │
+│  │  • Store position in database                        │  │
+│  └──────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Order Lifecycle
+
+```
+TradeSignal (from strategy)
+        ↓
+SimulatedOrder (PENDING)
+        ↓
+    Validation
+        ↓
+   ┌────┴────┐
+   │         │
+REJECTED    Get Fill Price
+   │         │
+   │         ↓
+   │      FILLED
+   │         │
+   └────┬────┘
+        ↓
+  Store in Database
+        ↓
+  Update Position
+```
+
+### Risk Controls
+
+The execution engine enforces risk limits:
+
+| Control | Default | Description |
+|---------|---------|-------------|
+| `max_position_size` | 100 | Max contracts per market |
+| `max_daily_orders` | 50 | Max orders per day |
+
+### Code Examples
+
+**Executing a Signal:**
+```python
+from backend.engine.execution import get_execution_engine
+from backend.models.order import TradeSignal, OrderSide
+
+engine = get_execution_engine()
+
+signal = TradeSignal(
+    strategy_id="my-strategy-uuid",
+    strategy_name="Sharp Line",
+    market_ticker="KXNBAGAME-26JAN08DALUTA-DAL",
+    side=OrderSide.YES,
+    quantity=10,
+    confidence=0.85,
+    reason="Kalshi undervalued by 7%"
+)
+
+result = await engine.execute_signal(signal, game_id="game-uuid")
+
+if result.success:
+    print(f"Filled @ {result.order.filled_price}¢")
+    print(f"Position: {result.new_position.quantity} contracts")
+else:
+    print(f"Rejected: {result.error}")
+```
+
+**Getting Positions:**
+```python
+engine = get_execution_engine()
+
+# All positions
+positions = engine.get_all_positions()
+
+# Open positions only
+open_positions = engine.get_open_positions()
+
+# Single position
+position = engine.get_position("KXNBAGAME-26JAN08DALUTA-DAL")
+```
+
+**Adding Execution Callback:**
+```python
+async def on_execution(order, position):
+    print(f"Order filled: {order.side} {order.quantity} @ {order.filled_price}")
+
+engine = get_execution_engine()
+engine.add_execution_callback(on_execution)
+```
+
+### API Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/execution/stats` | GET | Get execution engine statistics |
+| `/api/execution/positions` | GET | Get all positions |
+| `/api/execution/positions/open` | GET | Get open positions only |
+| `/api/execution/orders` | GET | Get recent orders |
+| `/api/execution/orders/game/{game_id}` | GET | Get orders for a game |
+| `/api/execution/orders/strategy/{strategy_id}` | GET | Get orders for a strategy |
+| `/api/execution/execute/manual` | POST | Place a manual order |
+| `/api/execution/execute/signal` | POST | Execute a signal manually |
+| `/api/execution/execute/strategy/{strategy_id}` | POST | Run strategy and execute signals |
+
+### Test Script
+
+```bash
+# Get execution stats
+python scripts/test_execution.py --stats
+
+# Place manual order
+python scripts/test_execution.py --manual-order \
+    --game-id <UUID> \
+    --market KXNBAGAME-26JAN08DALUTA-DAL \
+    --side yes \
+    --quantity 10
+
+# View recent orders
+python scripts/test_execution.py --view-orders
+
+# View positions
+python scripts/test_execution.py --view-positions
+
+# Execute strategy signals
+python scripts/test_execution.py --execute-strategy \
+    --strategy-id <UUID> \
+    --game-id <UUID>
+```
+
+### Important Notes
+
+1. **Paper Trading Only** - All orders are simulated, no real money
+2. **Immediate Fill** - Orders fill instantly at current ask price
+3. **In-Memory Positions** - Positions are tracked in memory and synced to DB
+4. **Daily Reset** - Order counter resets at UTC midnight
+5. **Database Tables** - Uses `simulated_orders` and `positions` tables
 
 ---
 

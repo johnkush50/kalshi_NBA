@@ -13,35 +13,33 @@ Building a full-stack Kalshi NBA paper trading application. This system monitors
 ---
 
 ## Your Task This Session
-**Iteration 10: Order Execution Engine**
+**Iteration 11: P&L Tracking & Performance**
 
-**Iteration 9 Status:** ✅ COMPLETE
+**Iteration 10 Status:** ✅ COMPLETE
 
-Cross-Market Correlation Strategy is complete:
-- ✅ CorrelationStrategy class (correlation.py)
-- ✅ Complementary market sum detection (home + away YES)
-- ✅ Moneyline vs spread correlation check
-- ✅ Generates signals when discrepancies exceed threshold
-- ✅ Registered in strategy engine (all 5 strategies complete!)
-- ✅ Test script updated with --test-correlation command
+Order Execution Engine is complete:
+- ✅ ExecutionEngine class (execution.py)
+- ✅ Signal to order conversion with validation
+- ✅ Simulated fills at ask price
+- ✅ Position tracking with average entry price
+- ✅ Database persistence for orders and positions
+- ✅ Risk controls (max position size, daily order limit)
+- ✅ API endpoints for execution control
+- ✅ Test script (test_execution.py)
 
-**Phase 2 (Trading Strategies) Status:** ✅ 100% COMPLETE
-All 5 PRD strategies implemented:
-1. ✅ Sharp Line Detection
-2. ✅ Momentum Scalping
-3. ✅ EV Multi-Book Arbitrage
-4. ✅ Mean Reversion
-5. ✅ Cross-Market Correlation
+**Phase 3 (Execution Engine) Status:** 50% Complete
+- ✅ Order execution simulation
+- ✅ Position management
+- ⏳ P&L calculation (next)
 
-**Next Steps (Iteration 10):**
-1. **ORDER EXECUTION ENGINE:**
-   - Execute signals as simulated orders
-   - Track order status (pending → filled)
-   - Simulate realistic fill prices using orderbook
-   - Store orders in database
+**Next Steps (Iteration 11):**
+1. **P&L TRACKING:**
+   - Calculate unrealized P&L from current market prices
+   - Calculate realized P&L on position close
+   - Track strategy-level performance metrics
+   - Store performance data in database
 
 2. **FUTURE ITERATIONS:**
-   - Iteration 11: Position Manager & P&L Calculator
    - Iteration 12: Risk Management System
    - Iteration 13: Frontend Dashboard
 

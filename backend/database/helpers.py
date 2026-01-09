@@ -293,3 +293,161 @@ async def get_latest_orderbook(market_id: str) -> Optional[Dict[str, Any]]:
         .execute()
     )
     return result.data[0] if result.data else None
+
+
+# =============================================================================
+# Strategies Table
+# =============================================================================
+
+async def get_strategy_by_id(strategy_id: str) -> Optional[Dict[str, Any]]:
+    """Get a strategy by its UUID."""
+    client = get_supabase_client()
+    try:
+        result = client.table("strategies").select("id").eq("id", strategy_id).execute()
+        return result.data[0] if result.data else None
+    except Exception:
+        return None
+
+
+# =============================================================================
+# Simulated Orders Table
+# =============================================================================
+
+async def create_simulated_order(order_data: dict) -> dict:
+    """Create a new simulated order in the database."""
+    client = get_supabase_client()
+    result = client.table("simulated_orders").insert(order_data).execute()
+    
+    if result.data:
+        logger.debug(f"Created simulated order: {order_data.get('id')}")
+        return result.data[0]
+    return order_data
+
+
+async def get_simulated_order(order_id: str) -> Optional[Dict[str, Any]]:
+    """Get a simulated order by ID."""
+    client = get_supabase_client()
+    result = client.table("simulated_orders").select("*").eq("id", order_id).execute()
+    
+    if result.data:
+        return result.data[0]
+    return None
+
+
+async def get_orders_by_strategy(strategy_id: str, limit: int = 50) -> List[Dict[str, Any]]:
+    """Get orders for a strategy."""
+    client = get_supabase_client()
+    result = client.table("simulated_orders")\
+        .select("*")\
+        .eq("strategy_id", strategy_id)\
+        .order("created_at", desc=True)\
+        .limit(limit)\
+        .execute()
+    
+    return result.data or []
+
+
+async def get_orders_by_game(game_id: str) -> List[Dict[str, Any]]:
+    """Get orders for a game."""
+    client = get_supabase_client()
+    result = client.table("simulated_orders")\
+        .select("*")\
+        .eq("game_id", game_id)\
+        .order("created_at", desc=True)\
+        .execute()
+    
+    return result.data or []
+
+
+async def get_recent_orders(limit: int = 50) -> List[Dict[str, Any]]:
+    """Get recent orders across all strategies."""
+    client = get_supabase_client()
+    result = client.table("simulated_orders")\
+        .select("*")\
+        .order("created_at", desc=True)\
+        .limit(limit)\
+        .execute()
+    
+    return result.data or []
+
+
+# =============================================================================
+# Positions Table
+# =============================================================================
+
+async def upsert_position(position_data: dict) -> dict:
+    """Create or update a position."""
+    client = get_supabase_client()
+    result = client.table("positions")\
+        .upsert(position_data, on_conflict="id")\
+        .execute()
+    
+    if result.data:
+        logger.debug(f"Upserted position: {position_data.get('market_ticker')}")
+        return result.data[0]
+    return position_data
+
+
+async def get_position(position_id: str) -> Optional[Dict[str, Any]]:
+    """Get a position by ID."""
+    client = get_supabase_client()
+    result = client.table("positions").select("*").eq("id", position_id).execute()
+    
+    if result.data:
+        return result.data[0]
+    return None
+
+
+async def get_position_by_ticker(market_ticker: str) -> Optional[Dict[str, Any]]:
+    """Get a position by market ticker."""
+    client = get_supabase_client()
+    result = client.table("positions")\
+        .select("*")\
+        .eq("market_ticker", market_ticker)\
+        .eq("is_open", True)\
+        .execute()
+    
+    if result.data:
+        return result.data[0]
+    return None
+
+
+async def get_positions_by_game(game_id: str) -> List[Dict[str, Any]]:
+    """Get all positions for a game."""
+    client = get_supabase_client()
+    result = client.table("positions")\
+        .select("*")\
+        .eq("game_id", game_id)\
+        .execute()
+    
+    return result.data or []
+
+
+async def get_open_positions() -> List[Dict[str, Any]]:
+    """Get all open positions."""
+    client = get_supabase_client()
+    result = client.table("positions")\
+        .select("*")\
+        .eq("is_open", True)\
+        .gt("quantity", 0)\
+        .execute()
+    
+    return result.data or []
+
+
+async def close_position(position_id: str, realized_pnl: float = 0.0) -> Optional[Dict[str, Any]]:
+    """Close a position."""
+    client = get_supabase_client()
+    result = client.table("positions")\
+        .update({
+            "is_open": False,
+            "closed_at": datetime.utcnow().isoformat(),
+            "realized_pnl": realized_pnl
+        })\
+        .eq("id", position_id)\
+        .execute()
+    
+    if result.data:
+        logger.debug(f"Closed position: {position_id}")
+        return result.data[0]
+    return None

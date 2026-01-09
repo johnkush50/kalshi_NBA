@@ -11,7 +11,7 @@ import logging
 
 from backend.config.settings import settings
 from backend.utils.logger import setup_logging
-from backend.api.routes import health, games, strategies, trading, aggregator
+from backend.api.routes import health, games, strategies, trading, aggregator, execution
 
 # Initialize logging
 setup_logging()
@@ -87,6 +87,13 @@ app.include_router(
     tags=["Aggregator"]
 )
 
+# Execution endpoints
+app.include_router(
+    execution.router,
+    prefix="/api/execution",
+    tags=["Execution"]
+)
+
 
 # ============================================================================
 # Startup and Shutdown Events
@@ -136,6 +143,15 @@ async def startup_event():
     except Exception as e:
         logger.error(f"✗ Failed to start strategy engine: {e}")
 
+    # Start execution engine
+    try:
+        from backend.engine.execution import get_execution_engine
+        exec_engine = get_execution_engine()
+        await exec_engine.start()
+        logger.info("✓ Execution engine started")
+    except Exception as e:
+        logger.error(f"✗ Failed to start execution engine: {e}")
+
     logger.info("Application startup complete")
     logger.info("=" * 60)
 
@@ -150,6 +166,15 @@ async def shutdown_event():
     logger.info("=" * 60)
     logger.info("Shutting down Kalshi NBA Paper Trading Application")
     logger.info("=" * 60)
+
+    # Stop execution engine
+    try:
+        from backend.engine.execution import get_execution_engine
+        exec_engine = get_execution_engine()
+        await exec_engine.stop()
+        logger.info("✓ Execution engine stopped")
+    except Exception as e:
+        logger.error(f"✗ Error stopping execution engine: {e}")
 
     # Stop strategy engine
     try:

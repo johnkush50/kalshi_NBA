@@ -310,7 +310,18 @@ async def _store_game_in_database(
     try:
         supabase = get_supabase_client()
         
-        # Generate game ID
+        # Check if game already exists by event ticker
+        existing = supabase.table("games").select("id").eq(
+            "kalshi_event_ticker", event_ticker
+        ).execute()
+        
+        if existing.data:
+            # Game already exists, return existing ID
+            game_id = existing.data[0]["id"]
+            logger.info(f"Game already exists: {game_id}")
+            return game_id
+        
+        # Generate new game ID
         game_id = str(uuid.uuid4())
         
         # Insert game record
@@ -325,7 +336,7 @@ async def _store_game_in_database(
             "is_active": True,
         }
         
-        supabase.table("games").upsert(game_data).execute()
+        supabase.table("games").insert(game_data).execute()
         
         # Insert market records
         for market in markets:
