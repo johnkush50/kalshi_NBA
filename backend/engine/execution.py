@@ -18,6 +18,7 @@ from backend.models.order import (
 )
 from backend.models.game_state import GameState
 from backend.engine.aggregator import get_aggregator
+from backend.engine.risk_manager import get_risk_manager, RiskCheckResult
 from backend.database import helpers as db
 from backend.config.settings import settings
 from backend.utils.pnl_calculator import PnLCalculator, PortfolioPnL
@@ -127,6 +128,22 @@ class ExecutionEngine:
             created_at=datetime.utcnow()
         )
         
+        # === RISK CHECK ===
+        risk_manager = get_risk_manager()
+        risk_result = risk_manager.check_order(order, self._positions)
+        
+        if not risk_result.approved:
+            order.status = OrderStatus.CANCELLED
+            
+            await self._store_order(order, rejection_reason=f"Risk check failed: {risk_result.reason}")
+            
+            logger.warning(f"Order rejected by risk manager: {risk_result.reason}")
+            return ExecutionResult(
+                success=False, 
+                order=order, 
+                error=risk_result.reason
+            )
+        
         # Validate order
         validation_error = await self._validate_order(order)
         if validation_error:
@@ -153,6 +170,9 @@ class ExecutionEngine:
         order.status = OrderStatus.FILLED
         order.filled_price = fill_price
         order.filled_at = datetime.utcnow()
+        
+        # Record with risk manager
+        risk_manager.record_order(order, fill_price)
         
         # Update position
         position = await self._update_position(order, game_id)
@@ -520,6 +540,15 @@ class ExecutionEngine:
             exit_price=exit_price,
             quantity=position.quantity,
             side=position.side
+        )
+        
+        # Record P&L with risk manager
+        risk_manager = get_risk_manager()
+        risk_manager.record_pnl(realized_pnl)
+        risk_manager.record_position_close(
+            market_ticker, 
+            position.game_id, 
+            position.quantity
         )
         
         # Update position

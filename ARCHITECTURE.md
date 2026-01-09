@@ -1,7 +1,7 @@
 # System Architecture - Current State
 
 **Last Updated:** January 9, 2026
-**Project Phase:** Phase 4 - Execution Engine (Iteration 11 Complete)
+**Project Phase:** Phase 4 - Execution Engine (Iteration 12 Complete)
 
 ---
 
@@ -1396,6 +1396,172 @@ python scripts/test_execution.py --close-position KXNBAGAME-26JAN09MILLAL-MIL --
 
 ---
 
+## ✅ Risk Management System (Iteration 12)
+
+**Location:** `backend/engine/risk_manager.py`, `backend/api/routes/risk.py`
+**Status:** ✅ Complete
+
+### Architecture Overview
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    Risk Manager                              │
+│                                                              │
+│  ┌──────────────────────────────────────────────────────┐  │
+│  │              Risk Checks                              │  │
+│  │  • Position limits (per market, game, total)         │  │
+│  │  • Loss limits (daily, weekly, per-trade)            │  │
+│  │  • Exposure limits (total, per-game, per-strategy)   │  │
+│  │  • Trading limits (orders per hour/day, cooldown)    │  │
+│  └──────────────────────┬───────────────────────────────┘  │
+│                         │                                   │
+│  ┌──────────────────────▼───────────────────────────────┐  │
+│  │              Order Flow                               │  │
+│  │  Signal → Risk Check → Approved/Rejected → Execution │  │
+│  └──────────────────────────────────────────────────────┘  │
+│                                                              │
+│  ┌──────────────────────────────────────────────────────┐  │
+│  │              Tracking                                 │  │
+│  │  • Daily/weekly loss accumulation                    │  │
+│  │  • Consecutive loss streak detection                 │  │
+│  │  • Auto cooldown after loss streak                   │  │
+│  └──────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Risk Limit Types
+
+| Limit Type | Default | Description |
+|------------|---------|-------------|
+| `max_contracts_per_market` | 100 | Max contracts in single market |
+| `max_contracts_per_game` | 200 | Max contracts across all markets for one game |
+| `max_total_contracts` | 500 | Max total open contracts |
+| `max_daily_loss` | 1000¢ | Daily loss limit ($10) |
+| `max_weekly_loss` | 5000¢ | Weekly loss limit ($50) |
+| `max_per_trade_risk` | 500¢ | Maximum risk per trade ($5) |
+| `max_total_exposure` | 10000¢ | Maximum total capital at risk ($100) |
+| `max_exposure_per_game` | 2000¢ | Maximum exposure per game ($20) |
+| `max_exposure_per_strategy` | 3000¢ | Maximum exposure per strategy ($30) |
+| `max_orders_per_day` | 50 | Maximum orders per day |
+| `max_orders_per_hour` | 20 | Maximum orders per hour |
+| `loss_streak_cooldown` | 3 | Consecutive losses before 5-min pause |
+
+### Loss Streak Cooldown
+
+After N consecutive losing trades (default: 3), trading pauses for 5 minutes:
+
+```
+Trade 1: Loss → streak = 1
+Trade 2: Loss → streak = 2  
+Trade 3: Loss → streak = 3 → COOLDOWN TRIGGERED (5 min pause)
+Trade 4: Win → streak = 0 (cooldown ends, trading resumes)
+```
+
+### Code Examples
+
+**Checking an Order:**
+```python
+from backend.engine.risk_manager import get_risk_manager
+
+risk_manager = get_risk_manager()
+result = risk_manager.check_order(order, current_positions)
+
+if result.approved:
+    # Proceed with execution
+else:
+    print(f"Rejected: {result.reason}")
+    print(f"Limit: {result.limit_type}, Current: {result.current_value}, Max: {result.limit_value}")
+```
+
+**Recording Order Execution:**
+```python
+risk_manager = get_risk_manager()
+risk_manager.record_order(order, fill_price)
+```
+
+**Recording P&L:**
+```python
+risk_manager = get_risk_manager()
+risk_manager.record_pnl(realized_pnl)  # Triggers cooldown if loss streak
+```
+
+**Adjusting Limits:**
+```python
+from backend.engine.risk_manager import get_risk_manager, RiskLimitType
+
+risk_manager = get_risk_manager()
+risk_manager.set_limit(RiskLimitType.MAX_DAILY_LOSS, 2000)  # Increase to $20
+```
+
+### API Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/risk/status` | GET | Get current risk status (losses, orders, cooldown) |
+| `/api/risk/limits` | GET | Get all risk limit values |
+| `/api/risk/limits` | PUT | Set a specific risk limit |
+| `/api/risk/limits/bulk` | PUT | Set multiple limits at once |
+| `/api/risk/enable` | POST | Enable risk management |
+| `/api/risk/disable` | POST | Disable risk management (WARNING!) |
+| `/api/risk/reset` | POST | Reset all tracking counters |
+| `/api/risk/check` | GET | Check if hypothetical order would pass |
+
+### Test Script
+
+```bash
+# Get risk status
+python scripts/test_risk.py --status
+
+# View all limits
+python scripts/test_risk.py --limits
+
+# Set a limit
+python scripts/test_risk.py --set-limit max_daily_loss 2000
+
+# Check hypothetical order
+python scripts/test_risk.py --check --game-id <UUID> --market <TICKER> --side yes --quantity 10
+
+# Enable/disable risk management
+python scripts/test_risk.py --enable
+python scripts/test_risk.py --disable
+
+# Reset counters
+python scripts/test_risk.py --reset
+```
+
+### Integration with Execution Engine
+
+Risk checks are automatically integrated into the execution flow:
+
+```
+TradeSignal
+    ↓
+ExecutionEngine.execute_signal()
+    ↓
+RiskManager.check_order()  ← RISK CHECK HERE
+    ↓
+┌────┴────┐
+│         │
+REJECTED  APPROVED
+│         │
+│         ↓
+│     Execute Order
+│         │
+│         ↓
+│     RiskManager.record_order()  ← TRACKING HERE
+└─────────┘
+```
+
+### Important Notes
+
+1. **Risk checks run BEFORE validation** - A rejected order never reaches the market
+2. **Daily/weekly resets automatic** - Daily at midnight UTC, weekly on Monday
+3. **Exposure uses worst-case** - Assumes 100¢ per contract for conservative limits
+4. **Disable with caution** - Removes all protections when disabled
+5. **Cooldown non-negotiable** - Cannot trade during loss streak cooldown
+
+---
+
 ## ❌ Not Yet Implemented
 
 ### Backend Infrastructure
@@ -1429,7 +1595,7 @@ python scripts/test_execution.py --close-position KXNBAGAME-26JAN09MILLAL-MIL --
 
 ### Trading Engine
 **Priority:** High  
-**Status:** Partially Complete (Iteration 11)
+**Status:** ✅ Complete (Iteration 12)
 
 - ✅ Strategy base class
 - ✅ Sharp Line Detection strategy
@@ -1441,7 +1607,7 @@ python scripts/test_execution.py --close-position KXNBAGAME-26JAN09MILLAL-MIL --
 - ✅ Order execution simulator
 - ✅ Position manager
 - ✅ P&L calculator
-- ❌ Risk management system
+- ✅ Risk management system
 
 ### Frontend
 **Priority:** Medium  

@@ -730,16 +730,85 @@
 
 ---
 
+### Iteration 12 - Risk Management System
+**Date:** January 9, 2026
+**Task:** Implement comprehensive risk management system
+**Status:** ✅ Complete
+
+**Files Created:**
+- `backend/engine/risk_manager.py` - Risk management system with:
+  - `RiskLimitType` enum for all limit types
+  - `RiskCheckResult` class for check results
+  - `RiskManager` class with all risk controls
+  - Position, loss, exposure, and trading limits
+  - Loss streak cooldown mechanism
+  - Daily/weekly automatic resets
+- `backend/api/routes/risk.py` - Risk management API endpoints
+- `scripts/test_risk.py` - CLI test script for risk management
+
+**Files Modified:**
+- `backend/engine/execution.py` - Integrated risk checks into order flow
+- `backend/main.py` - Registered risk router
+- `ARCHITECTURE.md` - Added Risk Management System section
+- `PROGRESS.md` - This file
+- `CLAUDE.md` - Updated task status
+
+**Risk Limits Implemented:**
+1. **Position Limits:**
+   - `max_contracts_per_market`: 100 (max per single market)
+   - `max_contracts_per_game`: 200 (max per game)
+   - `max_total_contracts`: 500 (total open contracts)
+
+2. **Loss Limits:**
+   - `max_daily_loss`: 1000¢ ($10 daily loss limit)
+   - `max_weekly_loss`: 5000¢ ($50 weekly loss limit)
+   - `max_per_trade_risk`: 500¢ ($5 max risk per trade)
+
+3. **Exposure Limits:**
+   - `max_total_exposure`: 10000¢ ($100 total)
+   - `max_exposure_per_game`: 2000¢ ($20 per game)
+   - `max_exposure_per_strategy`: 3000¢ ($30 per strategy)
+
+4. **Trading Limits:**
+   - `max_orders_per_day`: 50
+   - `max_orders_per_hour`: 20
+   - `loss_streak_cooldown`: 3 consecutive losses → 5 min pause
+
+**API Endpoints:**
+- `GET /api/risk/status` - Get risk status
+- `GET /api/risk/limits` - Get all limits
+- `PUT /api/risk/limits` - Set a limit
+- `PUT /api/risk/limits/bulk` - Set multiple limits
+- `POST /api/risk/enable` - Enable risk management
+- `POST /api/risk/disable` - Disable risk management
+- `POST /api/risk/reset` - Reset counters
+- `GET /api/risk/check` - Check hypothetical order
+
+**Testing:**
+- ✅ Server starts without errors
+- ✅ Risk API endpoints respond correctly
+- ✅ Risk checks integrated into execution flow
+- ✅ Test script commands work
+
+**Notes:**
+- Risk checks run BEFORE order validation
+- Daily/weekly counters reset automatically
+- Loss streak cooldown prevents revenge trading
+- Can be disabled for testing (use with caution)
+
+---
+
 ## ⏳ Up Next
 
-### Iteration 12 - Risk Management System
-**Planned Task:** Implement risk management and position limits
+### Iteration 13 - Frontend Dashboard
+**Planned Task:** Create Next.js frontend with dashboard UI
 
 **TODO:**
-- [ ] Position size limits per market
-- [ ] Maximum portfolio exposure
-- [ ] Drawdown limits and circuit breakers
-- [ ] Risk limit API endpoints
+- [ ] Next.js application setup
+- [ ] Dashboard layout
+- [ ] Strategy control cards
+- [ ] Position tracking table
+- [ ] Real-time data via WebSocket
 
 ---
 
@@ -765,11 +834,11 @@
 - [x] Strategy 4: Mean Reversion ✅
 - [x] Strategy 5: Cross-Market Correlation ✅
 
-### Phase 4: Execution Engine (90% Complete)
+### Phase 4: Execution Engine (100% Complete)
 - [x] Order execution simulation ✅
 - [x] Position management ✅
 - [x] P&L calculation ✅
-- [ ] Risk management system
+- [x] Risk management system ✅
 
 ### Phase 4: Frontend (0% Complete)
 - [ ] Next.js app structure

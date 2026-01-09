@@ -11,7 +11,7 @@ import logging
 
 from backend.config.settings import settings
 from backend.utils.logger import setup_logging
-from backend.api.routes import health, games, strategies, trading, aggregator, execution
+from backend.api.routes import health, games, strategies, trading, aggregator, execution, risk
 
 # Initialize logging
 setup_logging()
@@ -92,6 +92,13 @@ app.include_router(
     execution.router,
     prefix="/api/execution",
     tags=["Execution"]
+)
+
+# Risk management endpoints
+app.include_router(
+    risk.router,
+    prefix="/api/risk",
+    tags=["Risk Management"]
 )
 
 
