@@ -1,7 +1,7 @@
 # System Architecture - Current State
 
-**Last Updated:** January 8, 2026
-**Project Phase:** Phase 4 - Execution Engine (Iteration 10 Complete)
+**Last Updated:** January 9, 2026
+**Project Phase:** Phase 4 - Execution Engine (Iteration 11 Complete)
 
 ---
 
@@ -1265,6 +1265,137 @@ python scripts/test_execution.py --execute-strategy \
 
 ---
 
+## ✅ P&L Tracking & Performance Metrics (Iteration 11)
+
+**Location:** `backend/utils/pnl_calculator.py`, `backend/engine/execution.py`, `backend/api/routes/execution.py`
+**Status:** ✅ Complete
+
+### P&L Calculation Methodology
+
+Kalshi contracts are binary options with a fixed payout structure:
+- **YES contracts** pay $1.00 (100¢) if outcome is YES, $0 if NO
+- **NO contracts** pay $1.00 (100¢) if outcome is NO, $0 if YES
+
+**Example:**
+- Buy YES at 40¢ → If YES wins: +60¢ profit | If NO wins: -40¢ loss
+- Buy NO at 40¢ → If NO wins: +60¢ profit | If YES wins: -40¢ loss
+
+### Unrealized vs Realized P&L
+
+| Type | Description | Formula |
+|------|-------------|---------|
+| **Unrealized P&L** | Paper profit/loss on open positions | `(current_price - avg_entry_price) * quantity` |
+| **Realized P&L** | Locked-in profit/loss from closed positions | `(exit_price - entry_price) * quantity * direction` |
+| **Settlement P&L** | P&L at contract expiry | Position value at settlement (0 or 100¢) minus cost basis |
+
+### Performance Metrics Tracked
+
+1. **Portfolio Metrics:**
+   - Total cost basis
+   - Total unrealized P&L
+   - Total realized P&L
+   - Combined total P&L
+
+2. **Order Statistics:**
+   - Total orders placed
+   - Fill rate percentage
+   - Average fill price
+   - Unique markets traded
+
+3. **Win Rate Metrics (for settled positions):**
+   - Winning trades count
+   - Losing trades count
+   - Win rate percentage
+   - Average win/loss size
+   - Profit factor
+
+### Code Examples
+
+**Getting Portfolio P&L:**
+```python
+from backend.engine.execution import get_execution_engine
+
+engine = get_execution_engine()
+summary = engine.get_portfolio_summary()
+
+print(f"Open positions: {summary['open_positions']}")
+print(f"Total P&L: {summary['total_pnl']:.1f}¢")
+```
+
+**Refreshing Unrealized P&L:**
+```python
+engine = get_execution_engine()
+portfolio = await engine.update_unrealized_pnl()
+
+print(f"Updated {portfolio['position_count']} positions")
+print(f"Total unrealized: {portfolio['total_unrealized_pnl']:.1f}¢")
+```
+
+**Closing a Position:**
+```python
+from decimal import Decimal
+
+engine = get_execution_engine()
+position = await engine.close_position(
+    market_ticker="KXNBAGAME-26JAN09MILLAL-MIL",
+    exit_price=Decimal("55")  # Optional, uses market bid if None
+)
+
+print(f"Realized P&L: {position.realized_pnl:.1f}¢")
+```
+
+**Settling at Contract Expiry:**
+```python
+engine = get_execution_engine()
+
+# YES won the market
+position = await engine.settle_position(
+    market_ticker="KXNBAGAME-26JAN09MILLAL-MIL",
+    outcome=True  # True = YES won, False = NO won
+)
+
+print(f"Settlement P&L: {position.realized_pnl:.1f}¢")
+```
+
+### API Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/execution/pnl` | GET | Get portfolio P&L summary |
+| `/api/execution/pnl/refresh` | POST | Refresh unrealized P&L from market prices |
+| `/api/execution/positions/{ticker}/close` | POST | Close a position at market or specified price |
+| `/api/execution/positions/{ticker}/settle` | POST | Settle a position at contract expiry |
+| `/api/execution/performance` | GET | Get overall trading performance metrics |
+| `/api/execution/performance/strategy/{id}` | GET | Get performance for a specific strategy |
+
+### Test Script
+
+```bash
+# Get portfolio P&L summary
+python scripts/test_execution.py --pnl
+
+# Refresh P&L from current market prices
+python scripts/test_execution.py --refresh-pnl
+
+# Get trading performance metrics
+python scripts/test_execution.py --performance
+
+# Close a position
+python scripts/test_execution.py --close-position KXNBAGAME-26JAN09MILLAL-MIL
+
+# Close at specific exit price
+python scripts/test_execution.py --close-position KXNBAGAME-26JAN09MILLAL-MIL --exit-price 55
+```
+
+### Important Notes
+
+1. **Unrealized P&L Updates** - Call `/pnl/refresh` periodically to update unrealized P&L as market prices change
+2. **Settlement** - Use `settle_position` when a market reaches expiry to lock in final P&L
+3. **Position Closing** - Use `close_position` to exit before settlement at current market bid
+4. **Decimal Precision** - All P&L calculations use `Decimal` to avoid floating point errors
+
+---
+
 ## ❌ Not Yet Implemented
 
 ### Backend Infrastructure
@@ -1298,7 +1429,7 @@ python scripts/test_execution.py --execute-strategy \
 
 ### Trading Engine
 **Priority:** High  
-**Status:** Partially Complete (Iteration 9)
+**Status:** Partially Complete (Iteration 11)
 
 - ✅ Strategy base class
 - ✅ Sharp Line Detection strategy
@@ -1307,9 +1438,9 @@ python scripts/test_execution.py --execute-strategy \
 - ✅ EV Multi-Book Arbitrage strategy
 - ✅ Mean Reversion strategy
 - ✅ Cross-Market Correlation strategy
-- ❌ Order execution simulator
-- ❌ Position manager
-- ❌ P&L calculator
+- ✅ Order execution simulator
+- ✅ Position manager
+- ✅ P&L calculator
 - ❌ Risk management system
 
 ### Frontend

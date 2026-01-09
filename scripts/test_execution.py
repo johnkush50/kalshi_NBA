@@ -7,6 +7,10 @@ Usage:
     python scripts/test_execution.py --execute-strategy --strategy-id <UUID> --game-id <UUID>
     python scripts/test_execution.py --view-orders
     python scripts/test_execution.py --view-positions
+    python scripts/test_execution.py --pnl
+    python scripts/test_execution.py --refresh-pnl
+    python scripts/test_execution.py --close-position <TICKER>
+    python scripts/test_execution.py --performance
 """
 
 import asyncio
@@ -169,6 +173,108 @@ async def view_positions():
             print(f"   Error: {response.text}")
 
 
+async def get_pnl():
+    """Get portfolio P&L summary."""
+    print("\n" + "="*60)
+    print("Portfolio P&L Summary")
+    print("="*60)
+    
+    async with httpx.AsyncClient() as client:
+        response = await client.get(f"{BASE_URL}/api/execution/pnl")
+        
+        if response.status_code == 200:
+            data = response.json()
+            print(f"\n   Open positions: {data['open_positions']}")
+            print(f"   Total cost: {data['total_cost']:.1f}¢")
+            print(f"   Unrealized P&L: {data['total_unrealized_pnl']:.1f}¢")
+            print(f"   Realized P&L: {data['total_realized_pnl']:.1f}¢")
+            print(f"   Total P&L: {data['total_pnl']:.1f}¢")
+            
+            if data.get('positions'):
+                print("\n   Positions:")
+                for pos in data['positions']:
+                    pnl_str = f"+{pos['unrealized_pnl']:.1f}" if pos['unrealized_pnl'] >= 0 else f"{pos['unrealized_pnl']:.1f}"
+                    print(f"      {pos['side'].upper()} {pos['quantity']} {pos['ticker']}")
+                    print(f"         Entry: {pos['avg_entry']:.1f}¢, P&L: {pnl_str}¢")
+        else:
+            print(f"   Error: {response.text}")
+
+
+async def refresh_pnl():
+    """Refresh P&L based on current prices."""
+    print("\n" + "="*60)
+    print("Refreshing P&L")
+    print("="*60)
+    
+    async with httpx.AsyncClient() as client:
+        response = await client.post(f"{BASE_URL}/api/execution/pnl/refresh")
+        
+        if response.status_code == 200:
+            data = response.json()
+            portfolio = data.get('portfolio', {})
+            print(f"\n   ✓ P&L refreshed")
+            print(f"   Total unrealized: {portfolio.get('total_unrealized_pnl', 0):.1f}¢")
+            print(f"   Positions updated: {portfolio.get('position_count', 0)}")
+        else:
+            print(f"   Error: {response.text}")
+
+
+async def close_position_cmd(market_ticker: str, exit_price: float = None):
+    """Close a position."""
+    print("\n" + "="*60)
+    print(f"Closing Position: {market_ticker}")
+    print("="*60)
+    
+    async with httpx.AsyncClient() as client:
+        params = {}
+        if exit_price:
+            params["exit_price"] = exit_price
+        
+        response = await client.post(
+            f"{BASE_URL}/api/execution/positions/{market_ticker}/close",
+            params=params
+        )
+        
+        if response.status_code == 200:
+            data = response.json()
+            print(f"\n   ✓ Position closed")
+            print(f"   Realized P&L: {data['realized_pnl']:.1f}¢")
+        else:
+            try:
+                error_detail = response.json().get('detail', response.text)
+            except:
+                error_detail = response.text
+            print(f"   Error: {error_detail}")
+
+
+async def get_performance():
+    """Get overall performance metrics."""
+    print("\n" + "="*60)
+    print("Trading Performance")
+    print("="*60)
+    
+    async with httpx.AsyncClient() as client:
+        response = await client.get(f"{BASE_URL}/api/execution/performance")
+        
+        if response.status_code == 200:
+            data = response.json()
+            stats = data.get('order_stats', {})
+            portfolio = data.get('portfolio', {})
+            
+            print(f"\n   Order Statistics:")
+            print(f"      Total orders: {stats.get('total_orders', 0)}")
+            print(f"      Filled: {stats.get('filled_orders', 0)}")
+            print(f"      Rejected: {stats.get('rejected_orders', 0)}")
+            print(f"      Fill rate: {stats.get('fill_rate', 0):.1f}%")
+            print(f"      Avg fill price: {stats.get('avg_fill_price', 0):.1f}¢")
+            
+            print(f"\n   Portfolio:")
+            print(f"      Open positions: {portfolio.get('open_positions', 0)}")
+            print(f"      Total P&L: {portfolio.get('total_pnl', 0):.1f}¢")
+        else:
+            print(f"   Error: {response.text}")
+
+
 def main():
     parser = argparse.ArgumentParser(description="Test Order Execution Engine")
     parser.add_argument("--stats", action="store_true", help="Get execution stats")
@@ -176,6 +282,11 @@ def main():
     parser.add_argument("--execute-strategy", action="store_true", help="Execute strategy signals")
     parser.add_argument("--view-orders", action="store_true", help="View recent orders")
     parser.add_argument("--view-positions", action="store_true", help="View current positions")
+    parser.add_argument("--pnl", action="store_true", help="Get portfolio P&L")
+    parser.add_argument("--refresh-pnl", action="store_true", help="Refresh P&L from market prices")
+    parser.add_argument("--close-position", type=str, help="Close a position by market ticker")
+    parser.add_argument("--exit-price", type=float, help="Exit price for closing position")
+    parser.add_argument("--performance", action="store_true", help="Get trading performance metrics")
     parser.add_argument("--game-id", type=str, help="Game UUID")
     parser.add_argument("--market", type=str, help="Market ticker")
     parser.add_argument("--side", type=str, choices=["yes", "no"], help="Order side")
@@ -201,6 +312,14 @@ def main():
         asyncio.run(view_orders(args.limit))
     elif args.view_positions:
         asyncio.run(view_positions())
+    elif args.pnl:
+        asyncio.run(get_pnl())
+    elif args.refresh_pnl:
+        asyncio.run(refresh_pnl())
+    elif args.close_position:
+        asyncio.run(close_position_cmd(args.close_position, args.exit_price))
+    elif args.performance:
+        asyncio.run(get_performance())
     else:
         parser.print_help()
 

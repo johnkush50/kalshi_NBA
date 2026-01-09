@@ -13,34 +13,34 @@ Building a full-stack Kalshi NBA paper trading application. This system monitors
 ---
 
 ## Your Task This Session
-**Iteration 11: P&L Tracking & Performance**
+**Iteration 12: Risk Management System**
 
-**Iteration 10 Status:** ✅ COMPLETE
+**Iteration 11 Status:** ✅ COMPLETE
 
-Order Execution Engine is complete:
-- ✅ ExecutionEngine class (execution.py)
-- ✅ Signal to order conversion with validation
-- ✅ Simulated fills at ask price
-- ✅ Position tracking with average entry price
-- ✅ Database persistence for orders and positions
-- ✅ Risk controls (max position size, daily order limit)
-- ✅ API endpoints for execution control
-- ✅ Test script (test_execution.py)
+P&L Tracking & Performance Metrics complete:
+- ✅ PnLCalculator class (pnl_calculator.py)
+- ✅ Unrealized P&L calculation from market prices
+- ✅ Realized P&L on position close
+- ✅ Settlement P&L at contract expiry
+- ✅ Portfolio summary with total P&L
+- ✅ Performance metrics (fill rate, win rate, etc.)
+- ✅ P&L API endpoints
+- ✅ Test script commands (--pnl, --refresh-pnl, --performance)
 
-**Phase 3 (Execution Engine) Status:** 50% Complete
+**Phase 4 (Execution Engine) Status:** 90% Complete
 - ✅ Order execution simulation
 - ✅ Position management
-- ⏳ P&L calculation (next)
+- ✅ P&L calculation
+- ⏳ Risk management system (next)
 
-**Next Steps (Iteration 11):**
-1. **P&L TRACKING:**
-   - Calculate unrealized P&L from current market prices
-   - Calculate realized P&L on position close
-   - Track strategy-level performance metrics
-   - Store performance data in database
+**Next Steps (Iteration 12):**
+1. **RISK MANAGEMENT:**
+   - Position size limits per market
+   - Maximum portfolio exposure limits
+   - Drawdown limits and circuit breakers
+   - Risk limit API endpoints
 
 2. **FUTURE ITERATIONS:**
-   - Iteration 12: Risk Management System
    - Iteration 13: Frontend Dashboard
 
 ---

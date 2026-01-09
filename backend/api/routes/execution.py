@@ -10,6 +10,7 @@ Provides endpoints for:
 from fastapi import APIRouter, HTTPException
 from typing import List, Dict, Any, Optional
 from pydantic import BaseModel
+from decimal import Decimal
 import logging
 import uuid
 
@@ -18,6 +19,7 @@ from backend.engine.strategy_engine import get_strategy_engine
 from backend.engine.aggregator import get_aggregator
 from backend.models.order import TradeSignal, OrderSide
 from backend.database import helpers as db
+from backend.utils.pnl_calculator import StrategyPerformance
 
 logger = logging.getLogger(__name__)
 
@@ -292,4 +294,129 @@ async def execute_strategy_signals(strategy_id: str, game_id: str):
             for r in results if r.order
         ],
         "rejections": [r.error for r in failed]
+    }
+
+
+# =============================================================================
+# P&L Endpoints
+# =============================================================================
+
+@router.get("/pnl")
+async def get_portfolio_pnl():
+    """Get current portfolio P&L summary."""
+    engine = get_execution_engine()
+    return engine.get_portfolio_summary()
+
+
+@router.post("/pnl/refresh")
+async def refresh_pnl():
+    """Refresh unrealized P&L based on current market prices."""
+    engine = get_execution_engine()
+    portfolio = await engine.update_unrealized_pnl()
+    return {
+        "status": "refreshed",
+        "portfolio": portfolio
+    }
+
+
+@router.post("/positions/{market_ticker}/close")
+async def close_position(market_ticker: str, exit_price: Optional[float] = None):
+    """
+    Close a position at current market price or specified price.
+    
+    Args:
+        market_ticker: The market position to close
+        exit_price: Optional exit price (uses market bid if not specified)
+    """
+    engine = get_execution_engine()
+    
+    price = Decimal(str(exit_price)) if exit_price else None
+    position = await engine.close_position(market_ticker, price)
+    
+    if not position:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No open position found: {market_ticker}"
+        )
+    
+    return {
+        "status": "closed",
+        "market_ticker": market_ticker,
+        "realized_pnl": float(position.realized_pnl),
+        "position": {
+            "side": position.side.value,
+            "quantity": 0,  # Now closed
+            "avg_entry": float(position.avg_entry_price),
+            "realized_pnl": float(position.realized_pnl)
+        }
+    }
+
+
+@router.post("/positions/{market_ticker}/settle")
+async def settle_position(market_ticker: str, outcome: bool):
+    """
+    Settle a position at contract expiry.
+    
+    Args:
+        market_ticker: The market position to settle
+        outcome: True if YES won, False if NO won
+    """
+    engine = get_execution_engine()
+    
+    position = await engine.settle_position(market_ticker, outcome)
+    
+    if not position:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No open position found: {market_ticker}"
+        )
+    
+    return {
+        "status": "settled",
+        "market_ticker": market_ticker,
+        "outcome": "YES" if outcome else "NO",
+        "realized_pnl": float(position.realized_pnl)
+    }
+
+
+@router.get("/performance")
+async def get_overall_performance():
+    """Get overall trading performance metrics."""
+    from backend.config.supabase import get_supabase_client
+    
+    client = get_supabase_client()
+    
+    # Get all orders
+    result = client.table("simulated_orders").select("*").execute()
+    orders = result.data or []
+    
+    # Calculate performance
+    perf = StrategyPerformance.calculate_from_orders(orders)
+    
+    # Get P&L summary
+    engine = get_execution_engine()
+    portfolio = engine.get_portfolio_summary()
+    
+    return {
+        "order_stats": perf,
+        "portfolio": portfolio
+    }
+
+
+@router.get("/performance/strategy/{strategy_id}")
+async def get_strategy_performance(strategy_id: str):
+    """Get performance metrics for a specific strategy."""
+    orders = await db.get_orders_by_strategy(strategy_id, limit=1000)
+    
+    if not orders:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No orders found for strategy: {strategy_id}"
+        )
+    
+    perf = StrategyPerformance.calculate_from_orders(orders)
+    
+    return {
+        "strategy_id": strategy_id,
+        "performance": perf
     }

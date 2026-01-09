@@ -20,6 +20,7 @@ from backend.models.game_state import GameState
 from backend.engine.aggregator import get_aggregator
 from backend.database import helpers as db
 from backend.config.settings import settings
+from backend.utils.pnl_calculator import PnLCalculator, PortfolioPnL
 
 logger = logging.getLogger(__name__)
 
@@ -420,6 +421,192 @@ class ExecutionEngine:
             "open_positions_count": len(open_positions),
             "total_positions_tracked": len(self._positions),
             "max_position_size": self._max_position_size
+        }
+    
+    # =========================================================================
+    # P&L Management
+    # =========================================================================
+    
+    async def update_unrealized_pnl(self) -> Dict[str, Any]:
+        """
+        Update unrealized P&L for all open positions based on current market prices.
+        
+        Returns:
+            Portfolio P&L summary
+        """
+        aggregator = get_aggregator()
+        current_prices: Dict[str, Decimal] = {}
+        
+        # Get current prices for all positions
+        for ticker, position in self._positions.items():
+            if position.quantity <= 0:
+                continue
+            
+            # Find the game and market for this position
+            for game_id, game_state in aggregator.get_all_game_states().items():
+                if ticker in game_state.markets:
+                    market = game_state.markets[ticker]
+                    if market.orderbook and market.orderbook.mid_price:
+                        current_prices[ticker] = Decimal(str(market.orderbook.mid_price))
+                    break
+        
+        # Calculate P&L for each position
+        calc = PnLCalculator()
+        for ticker, position in self._positions.items():
+            if ticker in current_prices:
+                position.unrealized_pnl = calc.calculate_unrealized_pnl(
+                    position, current_prices[ticker]
+                )
+                position.updated_at = datetime.utcnow()
+                
+                # Update in database
+                await self._store_position(position)
+        
+        # Calculate portfolio totals
+        open_positions = self.get_open_positions()
+        portfolio = PortfolioPnL.calculate_total_unrealized(open_positions, current_prices)
+        
+        logger.info(
+            f"P&L updated: {portfolio['position_count']} positions, "
+            f"unrealized P&L: {portfolio['total_unrealized_pnl']:.1f}¢"
+        )
+        
+        return portfolio
+    
+    async def close_position(
+        self,
+        market_ticker: str,
+        exit_price: Optional[Decimal] = None,
+        reason: str = "manual_close"
+    ) -> Optional[ExecutionPosition]:
+        """
+        Close a position and calculate realized P&L.
+        
+        Args:
+            market_ticker: The market to close
+            exit_price: Price to close at (uses current market if None)
+            reason: Reason for closing
+        
+        Returns:
+            The closed position with realized P&L
+        """
+        position = self._positions.get(market_ticker)
+        if not position or position.quantity <= 0:
+            logger.warning(f"No open position to close: {market_ticker}")
+            return None
+        
+        # Get exit price if not provided
+        if exit_price is None:
+            aggregator = get_aggregator()
+            for game_id, game_state in aggregator.get_all_game_states().items():
+                if market_ticker in game_state.markets:
+                    market = game_state.markets[market_ticker]
+                    if market.orderbook:
+                        # Use bid price for selling
+                        if position.side == OrderSide.YES:
+                            exit_price = Decimal(str(market.orderbook.yes_bid or 0))
+                        else:
+                            exit_price = Decimal(str(market.orderbook.no_bid or 0))
+                    break
+        
+        if exit_price is None:
+            logger.error(f"Could not get exit price for {market_ticker}")
+            return None
+        
+        # Calculate realized P&L
+        calc = PnLCalculator()
+        realized_pnl = calc.calculate_realized_pnl(
+            entry_price=position.avg_entry_price,
+            exit_price=exit_price,
+            quantity=position.quantity,
+            side=position.side
+        )
+        
+        # Update position
+        position.realized_pnl += realized_pnl
+        position.quantity = 0
+        position.is_open = False
+        position.closed_at = datetime.utcnow()
+        position.updated_at = datetime.utcnow()
+        
+        # Store in database
+        await self._store_position(position)
+        
+        logger.info(
+            f"Position closed: {market_ticker}, realized P&L: {realized_pnl:.1f}¢ "
+            f"(entry: {position.avg_entry_price:.1f}¢, exit: {exit_price:.1f}¢)"
+        )
+        
+        return position
+    
+    async def settle_position(
+        self,
+        market_ticker: str,
+        outcome: bool  # True = YES won, False = NO won
+    ) -> Optional[ExecutionPosition]:
+        """
+        Settle a position at contract expiry.
+        
+        Args:
+            market_ticker: The market to settle
+            outcome: True if YES outcome, False if NO outcome
+        
+        Returns:
+            The settled position with realized P&L
+        """
+        position = self._positions.get(market_ticker)
+        if not position or position.quantity <= 0:
+            logger.warning(f"No open position to settle: {market_ticker}")
+            return None
+        
+        # Calculate settlement P&L
+        calc = PnLCalculator()
+        settlement_pnl = calc.calculate_settlement_pnl(position, outcome)
+        
+        # Update position
+        position.realized_pnl += settlement_pnl
+        position.unrealized_pnl = Decimal("0")
+        position.quantity = 0
+        position.is_open = False
+        position.closed_at = datetime.utcnow()
+        position.updated_at = datetime.utcnow()
+        
+        # Store in database
+        await self._store_position(position)
+        
+        outcome_str = "YES" if outcome else "NO"
+        logger.info(
+            f"Position settled: {market_ticker}, outcome: {outcome_str}, "
+            f"P&L: {settlement_pnl:.1f}¢"
+        )
+        
+        return position
+    
+    def get_portfolio_summary(self) -> Dict[str, Any]:
+        """Get summary of all positions and P&L."""
+        open_positions = self.get_open_positions()
+        
+        total_cost = sum(float(p.total_cost) for p in open_positions)
+        total_unrealized = sum(float(p.unrealized_pnl) for p in open_positions)
+        total_realized = sum(float(p.realized_pnl) for p in self._positions.values())
+        
+        return {
+            "open_positions": len(open_positions),
+            "total_cost": total_cost,
+            "total_unrealized_pnl": total_unrealized,
+            "total_realized_pnl": total_realized,
+            "total_pnl": total_unrealized + total_realized,
+            "positions": [
+                {
+                    "ticker": p.market_ticker,
+                    "side": p.side.value,
+                    "quantity": p.quantity,
+                    "avg_entry": float(p.avg_entry_price),
+                    "cost": float(p.total_cost),
+                    "unrealized_pnl": float(p.unrealized_pnl)
+                }
+                for p in open_positions
+            ]
         }
 
 

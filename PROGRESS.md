@@ -679,16 +679,67 @@
 
 ---
 
+### Iteration 11 - P&L Tracking & Performance Metrics
+**Date:** January 9, 2026
+**Task:** Implement P&L calculation and performance tracking
+**Status:** ✅ Complete
+
+**Files Created:**
+- `backend/utils/pnl_calculator.py` - P&L calculation utilities
+  - `PnLCalculator` class for unrealized/realized/settlement P&L
+  - `PortfolioPnL` class for portfolio-level calculations
+  - `StrategyPerformance` class for order/win rate metrics
+
+**Files Modified:**
+- `backend/engine/execution.py` - Added P&L management methods:
+  - `update_unrealized_pnl()` - Refresh P&L from market prices
+  - `close_position()` - Close position and calculate realized P&L
+  - `settle_position()` - Settle at contract expiry
+  - `get_portfolio_summary()` - Get portfolio P&L summary
+- `backend/api/routes/execution.py` - Added P&L API endpoints:
+  - `GET /api/execution/pnl` - Portfolio P&L summary
+  - `POST /api/execution/pnl/refresh` - Refresh unrealized P&L
+  - `POST /api/execution/positions/{ticker}/close` - Close position
+  - `POST /api/execution/positions/{ticker}/settle` - Settle position
+  - `GET /api/execution/performance` - Trading performance metrics
+  - `GET /api/execution/performance/strategy/{id}` - Strategy performance
+- `scripts/test_execution.py` - Added P&L commands:
+  - `--pnl` - Get portfolio P&L
+  - `--refresh-pnl` - Refresh P&L from market prices
+  - `--close-position <TICKER>` - Close a position
+  - `--exit-price <PRICE>` - Specify exit price
+  - `--performance` - Get trading performance
+
+**Features Implemented:**
+1. **Unrealized P&L Calculation** - Paper profit/loss on open positions
+2. **Realized P&L Calculation** - Locked-in P&L from closed positions
+3. **Settlement P&L** - P&L at contract expiry (YES/NO outcome)
+4. **Portfolio Summary** - Total cost, unrealized, realized, and total P&L
+5. **Position Closing** - Close at market bid or specified exit price
+6. **Performance Metrics** - Order stats, fill rate, win rate tracking
+
+**Testing:**
+- ✅ Server starts without errors
+- ✅ P&L endpoints respond correctly
+- ✅ Test script commands work
+
+**Notes:**
+- All P&L calculations use `Decimal` for precision
+- Kalshi binary payout structure handled correctly (YES=100¢ if win, 0 if lose)
+- Refresh P&L periodically to update unrealized values as prices change
+
+---
+
 ## ⏳ Up Next
 
-### Iteration 11 - P&L Tracking & Performance
-**Planned Task:** Implement P&L calculation and performance tracking
+### Iteration 12 - Risk Management System
+**Planned Task:** Implement risk management and position limits
 
 **TODO:**
-- [ ] Calculate unrealized P&L from current prices
-- [ ] Calculate realized P&L on position close
-- [ ] Track strategy performance metrics
-- [ ] Store performance data in database
+- [ ] Position size limits per market
+- [ ] Maximum portfolio exposure
+- [ ] Drawdown limits and circuit breakers
+- [ ] Risk limit API endpoints
 
 ---
 
@@ -714,10 +765,11 @@
 - [x] Strategy 4: Mean Reversion ✅
 - [x] Strategy 5: Cross-Market Correlation ✅
 
-### Phase 4: Execution Engine (50% Complete)
+### Phase 4: Execution Engine (90% Complete)
 - [x] Order execution simulation ✅
 - [x] Position management ✅
-- [ ] P&L calculation
+- [x] P&L calculation ✅
+- [ ] Risk management system
 
 ### Phase 4: Frontend (0% Complete)
 - [ ] Next.js app structure
@@ -737,10 +789,10 @@
 
 ## 📈 Statistics
 
-- **Total Iterations Completed:** 10
-- **Total Files Created:** 62+
-- **Total Lines of Code:** ~10,500
-- **Estimated Project Completion:** 80%
+- **Total Iterations Completed:** 11
+- **Total Files Created:** 63+
+- **Total Lines of Code:** ~11,000
+- **Estimated Project Completion:** 85%
 
 ---
 
