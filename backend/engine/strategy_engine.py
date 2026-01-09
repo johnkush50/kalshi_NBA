@@ -19,6 +19,7 @@ from backend.strategies.sharp_line import SharpLineStrategy
 from backend.strategies.momentum import MomentumStrategy
 from backend.strategies.ev_multibook import EVMultiBookStrategy
 from backend.strategies.mean_reversion import MeanReversionStrategy
+from backend.strategies.correlation import CorrelationStrategy
 from backend.engine.aggregator import get_aggregator
 
 logger = logging.getLogger(__name__)
@@ -30,8 +31,7 @@ STRATEGY_REGISTRY: Dict[str, type] = {
     "momentum": MomentumStrategy,
     "ev_multibook": EVMultiBookStrategy,
     "mean_reversion": MeanReversionStrategy,
-    # Future strategies will be added here:
-    # "correlation": CorrelationStrategy,
+    "correlation": CorrelationStrategy,
 }
 
 

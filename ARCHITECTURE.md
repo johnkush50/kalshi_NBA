@@ -990,6 +990,115 @@ Generated signals include:
 
 ---
 
+## Cross-Market Correlation Strategy (Iteration 9)
+
+**File:** `backend/strategies/correlation.py`  
+**Status:** ✅ Complete
+
+### Strategy Concept
+
+Different market types for the same game should be mathematically related. When one market moves but correlated markets don't adjust, there's an arbitrage opportunity. This strategy exploits pricing inefficiencies between related markets (moneyline, spread, totals).
+
+**Key Correlations:**
+- **Moneyline ↔ Spread:** Higher win probability should correlate with larger spread coverage
+- **Complementary Markets:** Home YES + Away YES should sum to ~100%
+- **Totals:** Over + Under should sum to ~100% (minus vig)
+
+**Example Scenario:**
+- Moneyline: Lakers 60% to win
+- Spread: Lakers -5.5 @ 52% (implies ~58% moneyline)
+- Discrepancy detected → Trade to exploit the gap
+
+### How It Works
+
+**Check 1: Complementary Market Sum**
+1. Get moneyline YES prices for both teams
+2. Sum them: `home_yes + away_yes`
+3. If sum > 105%: Both overvalued → BUY NO on higher priced side
+4. If sum < 95%: Both undervalued (unusual, no signal)
+
+**Check 2: Moneyline vs Spread Correlation**
+1. Get moneyline implied probability for favorite
+2. Estimate expected spread probability: `spread_prob ≈ 50 + (ml_prob - 50) * 0.5`
+3. Compare to actual spread price
+4. If discrepancy > threshold: Trade the mispriced market
+
+### Configuration Parameters
+
+```python
+{
+    "min_discrepancy_percent": 5.0,      # Min % discrepancy to trigger
+    "complementary_max_sum": 105.0,      # Max sum before overvalued
+    "complementary_min_sum": 95.0,       # Min sum before undervalued
+    "position_size": 10,                 # Contracts per trade
+    "cooldown_minutes": 5,               # Time between trades
+    "check_complementary": True,          # Enable home+away sum check
+    "check_moneyline_spread": True,       # Enable ML vs spread check
+    "prefer_no_on_overvalued": True       # Buy NO when sum > max
+}
+```
+
+### Code Examples
+
+**Loading the Strategy:**
+```python
+from backend.engine.strategy_engine import get_strategy_engine
+
+engine = get_strategy_engine()
+
+strategy = await engine.load_strategy(
+    strategy_type="correlation",
+    config={
+        "min_discrepancy_percent": 3.0,
+        "complementary_max_sum": 102.0
+    },
+    enable=True
+)
+```
+
+**Testing via CLI:**
+```bash
+python scripts/test_strategy.py --test-correlation --game-id <UUID>
+```
+
+### Signal Metadata
+
+**Complementary Market Signal:**
+```python
+{
+    "home_team": "DAL",
+    "away_team": "UTA",
+    "home_yes_price": 55.0,
+    "away_yes_price": 52.0,
+    "total_sum": 107.0,
+    "excess_percent": 7.0,
+    "signal_type": "complementary_overvalued"
+}
+```
+
+**ML-Spread Correlation Signal:**
+```python
+{
+    "spread_ticker": "KXNBASPREAD-26JAN08DALUTA-DAL7",
+    "spread_value": 7,
+    "spread_prob": 58.0,
+    "expected_spread_prob": 52.5,
+    "moneyline_prob": 65.0,
+    "favorite_team": "DAL",
+    "discrepancy": 5.5,
+    "signal_type": "ml_spread_correlation"
+}
+```
+
+### Important Notes
+
+1. **ML-Spread Model Simplified** - Uses linear approximation: `expected = 50 + (ml - 50) * 0.5`
+2. **Vig Consideration** - Complementary markets naturally sum > 100% due to vig
+3. **Best Conditions** - Works when one market updates before another (latency arb)
+4. **Ticker Parsing** - Spread tickers expected format: `KXNBASPREAD-{EVENT}-{TEAM}{VALUE}`
+
+---
+
 ## ❌ Not Yet Implemented
 
 ### Backend Infrastructure
@@ -1023,7 +1132,7 @@ Generated signals include:
 
 ### Trading Engine
 **Priority:** High  
-**Status:** Partially Complete (Iteration 8)
+**Status:** Partially Complete (Iteration 9)
 
 - ✅ Strategy base class
 - ✅ Sharp Line Detection strategy
@@ -1031,7 +1140,7 @@ Generated signals include:
 - ✅ Momentum Scalping strategy
 - ✅ EV Multi-Book Arbitrage strategy
 - ✅ Mean Reversion strategy
-- ❌ Correlation Play strategy
+- ✅ Cross-Market Correlation strategy
 - ❌ Order execution simulator
 - ❌ Position manager
 - ❌ P&L calculator

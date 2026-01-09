@@ -435,6 +435,123 @@ async def test_mean_reversion(game_id: str):
             print(f"   Recent signals: {len(status.get('recent_signals', []))}")
 
 
+async def test_correlation(game_id: str):
+    """Test Cross-Market Correlation strategy."""
+    print("\n" + "="*60)
+    print("Cross-Market Correlation Strategy Test")
+    print("="*60)
+    
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        # Load strategy
+        print("\n1. Loading Correlation strategy...")
+        response = await client.post(
+            f"{BASE_URL}/api/strategies/load",
+            json={
+                "strategy_type": "correlation",
+                "enable": True,
+                "config": {
+                    "min_discrepancy_percent": 3.0,    # Lower for testing
+                    "complementary_max_sum": 102.0,    # Tighter for testing
+                    "complementary_min_sum": 98.0,
+                    "cooldown_minutes": 0.1,
+                    "check_complementary": True,
+                    "check_moneyline_spread": True
+                }
+            }
+        )
+        
+        if response.status_code != 200:
+            print(f"   Error: {response.text}")
+            return
+        
+        strategy_data = response.json()
+        strategy_id = strategy_data["strategy_id"]
+        print(f"   ✓ Strategy loaded: {strategy_id}")
+        print(f"   Config: min_discrepancy={strategy_data['config']['min_discrepancy_percent']}%, "
+              f"complementary_max={strategy_data['config']['complementary_max_sum']}%")
+        
+        # Load game
+        print(f"\n2. Loading game {game_id}...")
+        response = await client.post(f"{BASE_URL}/api/aggregator/load/{game_id}")
+        if response.status_code != 200:
+            print(f"   Error: {response.text}")
+            return
+        print("   ✓ Game loaded")
+        
+        # Get game state to show market prices
+        print("\n3. Fetching market prices...")
+        response = await client.get(f"{BASE_URL}/api/aggregator/state/{game_id}")
+        if response.status_code == 200:
+            state = response.json()
+            
+            # Show moneyline prices
+            print("\n   Moneyline markets:")
+            for ticker, market in state.get("markets", {}).items():
+                if market.get("market_type") == "moneyline":
+                    ob = market.get("orderbook", {}) or {}
+                    yes_bid = ob.get("yes_bid") or 0
+                    yes_ask = ob.get("yes_ask") or 0
+                    if yes_bid and yes_ask:
+                        mid = (yes_bid + yes_ask) / 2
+                        print(f"      {ticker}: YES mid={mid:.1f}%")
+                    else:
+                        print(f"      {ticker}: no orderbook data")
+            
+            # Show a few spread markets
+            print("\n   Sample spread markets:")
+            count = 0
+            for ticker, market in state.get("markets", {}).items():
+                if market.get("market_type") == "spread" and count < 3:
+                    ob = market.get("orderbook", {}) or {}
+                    yes_bid = ob.get("yes_bid") or 0
+                    yes_ask = ob.get("yes_ask") or 0
+                    if yes_bid and yes_ask:
+                        mid = (yes_bid + yes_ask) / 2
+                        print(f"      {ticker}: YES mid={mid:.1f}%")
+                    else:
+                        print(f"      {ticker}: no orderbook data")
+                    count += 1
+        
+        # Evaluate
+        print("\n4. Evaluating strategy...")
+        response = await client.post(
+            f"{BASE_URL}/api/strategies/{strategy_id}/evaluate",
+            params={"game_id": game_id}
+        )
+        
+        if response.status_code != 200:
+            print(f"   Error: {response.text}")
+            return
+        
+        data = response.json()
+        print(f"   ✓ Evaluation complete")
+        print(f"   Signals generated: {data['signals_generated']}")
+        
+        if data["signals"]:
+            for signal in data["signals"]:
+                print(f"\n   Signal: {signal['side'].upper()} {signal['quantity']} {signal['market_ticker']}")
+                print(f"   Reason: {signal['reason']}")
+                if signal.get('metadata'):
+                    meta = signal['metadata']
+                    sig_type = meta.get('signal_type', 'unknown')
+                    print(f"   Type: {sig_type}")
+                    if sig_type == 'complementary_overvalued':
+                        print(f"   Sum: {meta.get('total_sum', 0):.1f}%")
+                    elif sig_type == 'ml_spread_correlation':
+                        print(f"   Discrepancy: {meta.get('discrepancy', 0):+.1f}%")
+        else:
+            print("\n   No signals generated. Possible reasons:")
+            print("   - Complementary markets sum within normal range")
+            print("   - ML-spread correlation within expected range")
+        
+        # Show status
+        print(f"\n5. Strategy status...")
+        response = await client.get(f"{BASE_URL}/api/strategies/{strategy_id}")
+        if response.status_code == 200:
+            status = response.json()
+            print(f"   Recent signals: {len(status.get('recent_signals', []))}")
+
+
 async def show_game_state(game_id: str):
     """Show the current game state for debugging."""
     print("\n" + "="*60)
@@ -484,6 +601,7 @@ def main():
     parser.add_argument("--test-momentum", action="store_true", help="Test momentum strategy")
     parser.add_argument("--test-ev-multibook", action="store_true", help="Test EV multi-book strategy")
     parser.add_argument("--test-mean-reversion", action="store_true", help="Test mean reversion strategy")
+    parser.add_argument("--test-correlation", action="store_true", help="Test correlation strategy")
     parser.add_argument("--evaluate", action="store_true", help="Run all enabled strategies")
     parser.add_argument("--show-state", action="store_true", help="Show game state for debugging")
     parser.add_argument("--game-id", type=str, help="Game UUID")
@@ -512,6 +630,11 @@ def main():
             print("Error: --game-id required")
             sys.exit(1)
         asyncio.run(test_mean_reversion(args.game_id))
+    elif args.test_correlation:
+        if not args.game_id:
+            print("Error: --game-id required")
+            sys.exit(1)
+        asyncio.run(test_correlation(args.game_id))
     elif args.evaluate:
         asyncio.run(evaluate_all(args.game_id))
     elif args.show_state:

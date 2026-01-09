@@ -554,16 +554,71 @@
 
 ---
 
+### Iteration 9 - Cross-Market Correlation Strategy
+**Date:** January 8, 2026
+**Task:** Implement Cross-Market Correlation strategy
+**Status:** ✅ Complete
+
+**Files Created:**
+- `backend/strategies/correlation.py` - Cross-Market Correlation strategy implementation
+
+**Files Modified:**
+- `backend/engine/strategy_engine.py` - Added CorrelationStrategy to registry
+- `scripts/test_strategy.py` - Added --test-correlation command
+- `ARCHITECTURE.md` - Added Cross-Market Correlation Strategy section
+- `PROGRESS.md` - This file
+- `CLAUDE.md` - Updated task status
+
+**Features Implemented:**
+
+1. **CorrelationStrategy Class** (`backend/strategies/correlation.py`)
+   - Groups markets by type (moneyline, spread, total)
+   - Checks complementary market sum (home + away YES)
+   - Checks moneyline vs spread correlation
+   - Generates signals when discrepancies exceed threshold
+   - Configurable parameters:
+     - `min_discrepancy_percent`: Min discrepancy to trigger (default: 5%)
+     - `complementary_max_sum`: Max sum before overvalued (default: 105%)
+     - `complementary_min_sum`: Min sum before undervalued (default: 95%)
+     - `position_size`: Contracts per trade (default: 10)
+     - `cooldown_minutes`: Time between trades (default: 5)
+     - `check_complementary`: Enable home+away sum check
+     - `check_moneyline_spread`: Enable ML vs spread correlation check
+     - `prefer_no_on_overvalued`: Buy NO when complementary sum > max
+
+2. **Two Detection Methods:**
+   - **Complementary Market Check:** Detects when home + away YES prices sum > 105%
+   - **ML-Spread Correlation:** Detects when spread probability differs from expected based on moneyline
+
+3. **Test Script Enhancement**
+   - Added `--test-correlation` command
+   - Shows moneyline and spread market prices
+   - Reports detected discrepancies and signal generation
+
+**Testing:**
+- ✅ Strategy compiles without errors
+- ✅ Registered in strategy engine (all 5 strategies now available)
+- ✅ API endpoints work for loading/evaluating
+- ✅ Test script runs successfully
+
+**Notes:**
+- ML-spread correlation uses simplified linear model (can be refined)
+- Complementary markets naturally sum > 100% due to vig (threshold accounts for this)
+- Works best with latency between related market updates
+- All 5 PRD strategies now complete!
+
+---
+
 ## ⏳ Up Next
 
-### Iteration 9 - Cross-Market Correlation Strategy
-**Planned Task:** Implement Correlation Play strategy
+### Iteration 10 - Order Execution Engine
+**Planned Task:** Implement order execution simulation
 
 **TODO:**
-- [ ] Detect correlated markets (spread/total relationship)
-- [ ] Identify when correlated markets diverge
-- [ ] Generate signals to exploit correlation imbalances
-- [ ] Configurable correlation thresholds
+- [ ] Execute signals as simulated orders
+- [ ] Track order status (pending → filled)
+- [ ] Simulate realistic fill prices
+- [ ] Store orders in database
 
 ---
 
@@ -582,12 +637,14 @@
 - [x] Betting odds fetching
 - [x] Data aggregation layer (background tasks)
 
-### Phase 3: Trading Engine (50% Complete)
+### Phase 3: Trading Strategies (100% Complete)
 - [x] Strategy 1: Sharp Line Detection ✅
 - [x] Strategy 2: Momentum Scalping ✅
 - [x] Strategy 3: EV Multi-Book Arbitrage ✅
 - [x] Strategy 4: Mean Reversion ✅
-- [ ] Strategy 5: Correlation Play
+- [x] Strategy 5: Cross-Market Correlation ✅
+
+### Phase 4: Execution Engine (0% Complete)
 - [ ] Order execution simulation
 - [ ] Position management
 - [ ] P&L calculation
@@ -610,10 +667,10 @@
 
 ## 📈 Statistics
 
-- **Total Iterations Completed:** 8
-- **Total Files Created:** 58+
-- **Total Lines of Code:** ~9,400
-- **Estimated Project Completion:** 72%
+- **Total Iterations Completed:** 9
+- **Total Files Created:** 59+
+- **Total Lines of Code:** ~9,800
+- **Estimated Project Completion:** 75%
 
 ---
 
