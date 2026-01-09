@@ -108,7 +108,6 @@ class SharpLineStrategy(BaseStrategy):
         """
         # Check if market type is enabled
         if market.market_type not in self.config["market_types"]:
-            logger.info(f"DEBUG {market.ticker}: SKIP market_type={market.market_type} not in {self.config['market_types']}")
             return None
         
         # Check cooldown
@@ -117,13 +116,11 @@ class SharpLineStrategy(BaseStrategy):
         
         # Get orderbook
         if not market.orderbook:
-            logger.info(f"DEBUG {market.ticker}: SKIP no orderbook")
             return None
         
         # Get Kalshi implied probability (use mid price)
         kalshi_price = market.orderbook.mid_price
         if not kalshi_price or kalshi_price <= 0:
-            logger.info(f"DEBUG {market.ticker}: SKIP kalshi_price={kalshi_price}")
             return None
         
         # Kalshi prices are in cents (0-100), convert to probability (0-1)
@@ -132,18 +129,14 @@ class SharpLineStrategy(BaseStrategy):
         # Get consensus probability for this market type
         consensus_prob = self._get_consensus_for_market(game_state, market)
         if not consensus_prob:
-            logger.info(f"DEBUG {market.ticker}: SKIP consensus_prob=None")
             return None
         
         # Calculate divergence
         divergence = float(consensus_prob - kalshi_prob)
         divergence_percent = abs(divergence) * 100
         
-        logger.info(f"DEBUG {market.ticker}: kalshi={float(kalshi_prob):.3f}, consensus={float(consensus_prob):.3f}, divergence={divergence_percent:.2f}%")
-        
         # Check threshold
         if divergence_percent < self.config["threshold_percent"]:
-            logger.info(f"DEBUG {market.ticker}: SKIP divergence {divergence_percent:.2f}% < threshold {self.config['threshold_percent']}%")
             return None
         
         # Determine trade direction
@@ -157,10 +150,7 @@ class SharpLineStrategy(BaseStrategy):
             side = OrderSide.NO
             entry_price = market.orderbook.no_ask
         
-        logger.info(f"DEBUG {market.ticker}: side={side.value}, entry_price={entry_price}, yes_ask={market.orderbook.yes_ask}, no_ask={market.orderbook.no_ask}")
-        
         if not entry_price or entry_price <= 0:
-            logger.info(f"DEBUG {market.ticker}: SKIP entry_price invalid ({entry_price})")
             return None
         
         # Calculate expected value

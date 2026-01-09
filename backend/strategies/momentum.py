@@ -150,23 +150,19 @@ class MomentumStrategy(BaseStrategy):
         """
         # Check if market type is enabled
         if market.market_type not in self.config["market_types"]:
-            logger.info(f"DEBUG {market.ticker}: SKIP market_type={market.market_type} not in {self.config['market_types']}")
             return None
         
         # Check cooldown
         if not self.check_cooldown(market.ticker):
-            logger.info(f"DEBUG {market.ticker}: SKIP in cooldown")
             return None
         
         # Get orderbook
         if not market.orderbook:
-            logger.info(f"DEBUG {market.ticker}: SKIP no orderbook")
             return None
         
         # Get current price (mid price in cents)
         current_price = market.orderbook.mid_price
         if not current_price or current_price <= 0:
-            logger.info(f"DEBUG {market.ticker}: SKIP invalid current_price={current_price}")
             return None
         
         # Get historical price
@@ -174,7 +170,6 @@ class MomentumStrategy(BaseStrategy):
         historical_price = self._get_historical_price(market.ticker, lookback)
         
         if historical_price is None:
-            logger.info(f"DEBUG {market.ticker}: SKIP no historical price (need more data)")
             return None
         
         # Calculate price change (in cents)
@@ -183,26 +178,15 @@ class MomentumStrategy(BaseStrategy):
         historical_cents = float(historical_price)
         price_change = current_cents - historical_cents
         
-        logger.info(
-            f"DEBUG {market.ticker}: current={current_cents:.1f}¢, "
-            f"historical={historical_cents:.1f}¢, change={price_change:.1f}¢"
-        )
-        
         # Check minimum price change threshold
         min_change = self.config["min_price_change_cents"]
         if abs(price_change) < min_change:
-            logger.info(
-                f"DEBUG {market.ticker}: SKIP price_change {abs(price_change):.1f}¢ < threshold {min_change}¢"
-            )
             return None
         
         # Check spread
         spread = self._calculate_spread(market)
         max_spread = self.config["max_spread_cents"]
         if spread is not None and spread > max_spread:
-            logger.info(
-                f"DEBUG {market.ticker}: SKIP spread {spread:.1f}¢ > max {max_spread}¢"
-            )
             return None
         
         # Determine trade direction based on momentum
@@ -216,7 +200,6 @@ class MomentumStrategy(BaseStrategy):
             entry_price = market.orderbook.no_ask
         
         if not entry_price or entry_price <= 0:
-            logger.info(f"DEBUG {market.ticker}: SKIP invalid entry_price={entry_price}")
             return None
         
         # Record the trade for cooldown

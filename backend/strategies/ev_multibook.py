@@ -59,7 +59,6 @@ class EVMultiBookStrategy(BaseStrategy):
         
         # Need odds data to compare
         if not game_state.odds:
-            logger.info(f"DEBUG {game_state.game_id}: No odds data available")
             return []
         
         for ticker, market in game_state.markets.items():
@@ -79,17 +78,14 @@ class EVMultiBookStrategy(BaseStrategy):
         
         # Check market type
         if market.market_type not in self.config["market_types"]:
-            logger.info(f"DEBUG {market.ticker}: SKIP market_type={market.market_type} not in {self.config['market_types']}")
             return None
         
         # Check cooldown
         if not self.check_cooldown(market.ticker):
-            logger.info(f"DEBUG {market.ticker}: SKIP in cooldown")
             return None
         
         # Get orderbook
         if not market.orderbook:
-            logger.info(f"DEBUG {market.ticker}: SKIP no orderbook")
             return None
         
         # Get Kalshi prices (already in cents)
@@ -97,7 +93,6 @@ class EVMultiBookStrategy(BaseStrategy):
         no_ask = market.orderbook.no_ask
         
         if not yes_ask or not no_ask:
-            logger.info(f"DEBUG {market.ticker}: SKIP missing ask prices")
             return None
         
         # Determine if this is home or away market
@@ -151,12 +146,6 @@ class EVMultiBookStrategy(BaseStrategy):
             if ev_no >= min_ev:
                 no_ev_books.append((book_name, float(ev_no), float(Decimal("1") - book_prob)))
         
-        logger.info(
-            f"DEBUG {market.ticker}: YES +EV books: {len(yes_ev_books)}, "
-            f"NO +EV books: {len(no_ev_books)}, "
-            f"need {self.config['min_sportsbooks_agreeing']}"
-        )
-        
         # Check if enough books agree
         min_books = self.config["min_sportsbooks_agreeing"]
         
@@ -170,10 +159,6 @@ class EVMultiBookStrategy(BaseStrategy):
             ev_books = no_ev_books
             entry_price = no_ask
         else:
-            logger.info(
-                f"DEBUG {market.ticker}: SKIP insufficient agreeing books "
-                f"(YES: {len(yes_ev_books)}, NO: {len(no_ev_books)}, need: {min_books})"
-            )
             return None
         
         # Sort by EV and get best

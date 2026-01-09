@@ -351,14 +351,11 @@ class DataAggregator:
             return
         
         try:
-            logger.info(f"Fetching odds for NBA game ID: {nba_game_id}")
             client = self._get_bdl_client()
             odds_data = await client.get_odds(game_ids=[nba_game_id])
             
-            logger.info(f"Odds API returned {len(odds_data) if odds_data else 0} records")
-            
             if not odds_data:
-                logger.info(f"No odds data returned from API for game {nba_game_id}")
+                logger.debug(f"No odds data available for game {nba_game_id}")
                 return
             
             # API returns flat records: one per vendor with direct fields
@@ -424,7 +421,7 @@ class DataAggregator:
             game_state.last_updated = datetime.utcnow()
             await self._notify_subscribers(game_id, game_state, EventType.ODDS_UPDATE)
             
-            logger.info(f"Loaded odds from {len(game_state.odds)} sportsbooks for game {game_id}")
+            logger.debug(f"Loaded odds from {len(game_state.odds)} sportsbooks for game {game_id}")
             
         except Exception as e:
             logger.error(f"Error refreshing odds for game {game_id}: {e}", exc_info=True)

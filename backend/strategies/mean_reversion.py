@@ -67,36 +67,27 @@ class MeanReversionStrategy(BaseStrategy):
         # Check if game is live
         is_live = self._is_game_live(game_state)
         
-        logger.info(
-            f"DEBUG {game_id}: phase={game_state.phase}, is_live={is_live}, "
-            f"has_pregame_prices={game_id in self._pregame_prices}"
-        )
-        
         # If game just went live, store pre-game prices
         if is_live and game_id not in self._games_seen_live:
             self._store_pregame_prices(game_state)
             self._games_seen_live.add(game_id)
-            logger.info(f"DEBUG {game_id}: Stored pre-game prices for {len(self._pregame_prices.get(game_id, {}))} markets")
+            logger.debug(f"Stored pre-game prices for {game_id}: {len(self._pregame_prices.get(game_id, {}))} markets")
             return []  # Don't trade on first live evaluation
         
         # Only evaluate during live games
         if not is_live:
-            logger.info(f"DEBUG {game_id}: SKIP not live")
             return []
         
         # Check if we have pre-game prices
         if game_id not in self._pregame_prices:
-            logger.info(f"DEBUG {game_id}: SKIP no pre-game prices stored")
             return []
         
         # Check time remaining
         if not self._check_time_remaining(game_state):
-            logger.info(f"DEBUG {game_id}: SKIP insufficient time remaining")
             return []
         
         # Check first half restriction
         if self.config["only_first_half"] and not self._is_first_half(game_state):
-            logger.info(f"DEBUG {game_id}: SKIP not first half (period={game_state.nba_state.period if game_state.nba_state else 'unknown'})")
             return []
         
         # Evaluate each market
@@ -173,7 +164,6 @@ class MeanReversionStrategy(BaseStrategy):
         
         # Check cooldown
         if not self.check_cooldown(market.ticker):
-            logger.info(f"DEBUG {market.ticker}: SKIP in cooldown")
             return None
         
         # Get orderbook
@@ -186,7 +176,6 @@ class MeanReversionStrategy(BaseStrategy):
         pregame_price = pregame_prices.get(market.ticker)
         
         if not current_price or not pregame_price:
-            logger.info(f"DEBUG {market.ticker}: SKIP missing prices (current={current_price}, pregame={pregame_price})")
             return None
         
         # Calculate swing (in percentage points)
@@ -194,26 +183,18 @@ class MeanReversionStrategy(BaseStrategy):
         swing = float(current_price) - float(pregame_price)
         swing_pct = abs(swing)
         
-        logger.info(
-            f"DEBUG {market.ticker}: pregame={float(pregame_price):.1f}¢, "
-            f"current={float(current_price):.1f}¢, swing={swing:+.1f}pp"
-        )
-        
         # Check swing is within tradeable range
         min_swing = self.config["min_reversion_percent"]
         max_swing = self.config["max_reversion_percent"]
         
         if swing_pct < min_swing:
-            logger.info(f"DEBUG {market.ticker}: SKIP swing {swing_pct:.1f}pp < min {min_swing}pp")
             return None
         
         if swing_pct > max_swing:
-            logger.info(f"DEBUG {market.ticker}: SKIP swing {swing_pct:.1f}pp > max {max_swing}pp (real shift?)")
             return None
         
         # Check score deficit isn't too extreme
         if not self._check_score_deficit(game_state, market):
-            logger.info(f"DEBUG {market.ticker}: SKIP score deficit too large")
             return None
         
         # Determine trade direction (bet on reversion)

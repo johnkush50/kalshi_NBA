@@ -69,10 +69,6 @@ class CorrelationStrategy(BaseStrategy):
             elif market.market_type == "total":
                 total_markets[ticker] = market
         
-        logger.info(
-            f"DEBUG {game_state.game_id}: Found {len(moneyline_markets)} moneyline, "
-            f"{len(spread_markets)} spread, {len(total_markets)} total markets"
-        )
         
         # Check 1: Complementary moneyline markets
         if self.config["check_complementary"] and len(moneyline_markets) >= 2:
@@ -114,11 +110,9 @@ class CorrelationStrategy(BaseStrategy):
         away_market = moneyline_markets.get(away_team)
         
         if not home_market or not away_market:
-            logger.info(f"DEBUG: Missing moneyline market (home={home_market is not None}, away={away_market is not None})")
             return []
         
         if not home_market.orderbook or not away_market.orderbook:
-            logger.info(f"DEBUG: Missing orderbook for moneyline markets")
             return []
         
         # Get mid prices (YES probability for each team)
@@ -131,18 +125,11 @@ class CorrelationStrategy(BaseStrategy):
         # Calculate sum (in percentage)
         total_sum = float(home_yes) + float(away_yes)
         
-        logger.info(
-            f"DEBUG Complementary: {home_team} YES={float(home_yes):.1f}%, "
-            f"{away_team} YES={float(away_yes):.1f}%, Sum={total_sum:.1f}%"
-        )
-        
         max_sum = self.config["complementary_max_sum"]
         min_sum = self.config["complementary_min_sum"]
         
         # Check for overvaluation (sum too high)
         if total_sum > max_sum:
-            excess = total_sum - 100
-            logger.info(f"DEBUG: Complementary sum {total_sum:.1f}% > {max_sum}% (excess: {excess:.1f}%)")
             
             # Determine which side is more overvalued
             # Buy NO on the side that's further from fair value
@@ -159,7 +146,6 @@ class CorrelationStrategy(BaseStrategy):
                 
                 # Check cooldown
                 if not self.check_cooldown(target_market.ticker):
-                    logger.info(f"DEBUG {target_market.ticker}: SKIP in cooldown")
                     return []
                 
                 self.record_trade(target_market.ticker)
@@ -245,10 +231,6 @@ class CorrelationStrategy(BaseStrategy):
             favorite_prob = away_ml_prob
             underdog_team = home_team
         
-        logger.info(
-            f"DEBUG ML vs Spread: Favorite={favorite_team} at {favorite_prob:.1f}%, "
-            f"checking {len(spread_markets)} spread markets"
-        )
         
         # Find spread markets for the favorite
         # Spread tickers look like: KXNBASPREAD-26JAN08DALUTA-DAL7
@@ -296,18 +278,11 @@ class CorrelationStrategy(BaseStrategy):
             
             discrepancy = spread_prob - expected_spread_prob
             
-            logger.info(
-                f"DEBUG {ticker}: spread_prob={spread_prob:.1f}%, "
-                f"expected={expected_spread_prob:.1f}% (from ML {favorite_prob:.1f}%), "
-                f"discrepancy={discrepancy:+.1f}%"
-            )
-            
             min_disc = self.config["min_discrepancy_percent"]
             
             if abs(discrepancy) >= min_disc:
                 # Check cooldown
                 if not self.check_cooldown(ticker):
-                    logger.info(f"DEBUG {ticker}: SKIP in cooldown")
                     continue
                 
                 # Spread is mispriced relative to moneyline

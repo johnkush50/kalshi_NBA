@@ -211,6 +211,11 @@ class StrategyEngine:
             if signals:
                 all_signals[game_id] = signals
         
+        # Log summary if signals were generated
+        if all_signals:
+            total_signals = sum(len(s) for s in all_signals.values())
+            logger.info(f"Strategy evaluation: {total_signals} signals from {len(all_signals)} games")
+        
         return all_signals
     
     # =========================================================================
