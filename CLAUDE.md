@@ -13,29 +13,30 @@ Building a full-stack Kalshi NBA paper trading application. This system monitors
 ---
 
 ## Your Task This Session
-**Iteration 8: Live Game Mean Reversion Strategy**
+**Iteration 9: Cross-Market Correlation Strategy**
 
-**Iteration 7 Status:** ✅ COMPLETE
+**Iteration 8 Status:** ✅ COMPLETE
 
-EV Multi-Book Arbitrage Strategy is complete:
-- ✅ EVMultiBookStrategy class (ev_multibook.py)
-- ✅ Compares Kalshi to each sportsbook individually
-- ✅ Generates signals when multiple books show +EV
+Live Mean Reversion Strategy is complete:
+- ✅ MeanReversionStrategy class (mean_reversion.py)
+- ✅ Stores pre-game prices when game goes live
+- ✅ Detects price swings from pre-game baseline
+- ✅ Generates signals for mean reversion trades
+- ✅ Added simulate-pregame API endpoint for testing
 - ✅ Registered in strategy engine
-- ✅ Test script updated with --test-ev-multibook command
-- ✅ Fixed momentum strategy price unit bug (3650¢ -> 36.5¢)
+- ✅ Test script updated with --test-mean-reversion command
 
-**Next Steps (Iteration 8):**
-1. **MEAN REVERSION STRATEGY:**
-   - Detect overreactions to in-game events
-   - Calculate deviation from expected probability
-   - Generate signals when price deviates significantly
-   - Configurable reversion thresholds
+**Next Steps (Iteration 9):**
+1. **CORRELATION PLAY STRATEGY:**
+   - Detect correlated markets (spread/total relationship)
+   - Identify when correlated markets diverge
+   - Generate signals to exploit correlation imbalances
+   - Configurable correlation thresholds
 
 2. **FUTURE ITERATIONS:**
-   - Iteration 9: Correlation Play Strategy
    - Iteration 10: Order Execution Engine
    - Iteration 11: Position Manager & P&L Calculator
+   - Iteration 12: Frontend Dashboard
 
 ---
 

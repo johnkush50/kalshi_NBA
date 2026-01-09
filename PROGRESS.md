@@ -489,16 +489,81 @@
 
 ---
 
+### Iteration 8 - Live Game Mean Reversion Strategy
+**Date:** January 8, 2026
+**Task:** Implement Mean Reversion strategy for live games
+**Status:** ✅ Complete
+
+**Files Created:**
+- `backend/strategies/mean_reversion.py` - Mean Reversion strategy implementation
+
+**Files Modified:**
+- `backend/engine/strategy_engine.py` - Added MeanReversionStrategy to registry
+- `backend/api/routes/strategies.py` - Added simulate-pregame endpoint
+- `scripts/test_strategy.py` - Added --test-mean-reversion command
+- `ARCHITECTURE.md` - Added Mean Reversion Strategy section
+- `PROGRESS.md` - This file
+- `CLAUDE.md` - Updated task status
+
+**Features Implemented:**
+
+1. **MeanReversionStrategy Class** (`backend/strategies/mean_reversion.py`)
+   - Stores pre-game prices when game first goes live
+   - Compares current live prices to pre-game baseline
+   - Calculates price swing in percentage points
+   - Generates BUY YES signals when price dropped (expect recovery)
+   - Generates BUY NO signals when price increased (expect decline)
+   - Configurable parameters:
+     - `min_reversion_percent`: Minimum swing to trigger (default: 15%)
+     - `max_reversion_percent`: Maximum swing (beyond = real shift, default: 40%)
+     - `min_time_remaining_pct`: Minimum % of game remaining (default: 25%)
+     - `position_size`: Contracts per trade (default: 10)
+     - `cooldown_minutes`: Time between trades (default: 10)
+     - `only_first_half`: Only trade in Q1/Q2 (default: true)
+     - `market_types`: Markets to trade (default: ["moneyline"])
+     - `max_score_deficit`: Don't trade blowouts (default: 20 pts)
+
+2. **Pre-Game Price Simulation**
+   - Added `simulate_pregame_prices()` method for testing
+   - New API endpoint: `POST /api/strategies/{id}/simulate-pregame`
+   - Allows testing without waiting for live games
+
+3. **Safety Checks**
+   - Time remaining check (enough game left for reversion)
+   - First half restriction (most reliable period)
+   - Score deficit check (don't trade blowouts)
+   - Swing range check (too extreme = legitimate shift)
+
+4. **Test Script Enhancement**
+   - Added `--test-mean-reversion` command
+   - Creates simulated pre-game prices offset from current prices
+   - Tests full evaluation flow
+
+**Testing:**
+- ✅ Strategy compiles without errors
+- ✅ Registered in strategy engine
+- ✅ API endpoints work for loading/evaluating
+- ✅ Simulate-pregame endpoint functional
+- ✅ Test script runs successfully
+
+**Notes:**
+- Strategy designed for LIVE games only
+- Pre-game prices stored in memory (lost on restart)
+- In production, consider persisting pre-game prices to database
+- Mean reversion most reliable in first half when time remains
+
+---
+
 ## ⏳ Up Next
 
-### Iteration 8 - Live Game Mean Reversion Strategy
-**Planned Task:** Implement Mean Reversion strategy for live games
+### Iteration 9 - Cross-Market Correlation Strategy
+**Planned Task:** Implement Correlation Play strategy
 
 **TODO:**
-- [ ] Detect overreactions to in-game events
-- [ ] Calculate deviation from expected probability
-- [ ] Generate signals when price deviates significantly
-- [ ] Configurable reversion thresholds
+- [ ] Detect correlated markets (spread/total relationship)
+- [ ] Identify when correlated markets diverge
+- [ ] Generate signals to exploit correlation imbalances
+- [ ] Configurable correlation thresholds
 
 ---
 
@@ -517,11 +582,11 @@
 - [x] Betting odds fetching
 - [x] Data aggregation layer (background tasks)
 
-### Phase 3: Trading Engine (40% Complete)
+### Phase 3: Trading Engine (50% Complete)
 - [x] Strategy 1: Sharp Line Detection ✅
 - [x] Strategy 2: Momentum Scalping ✅
 - [x] Strategy 3: EV Multi-Book Arbitrage ✅
-- [ ] Strategy 4: Mean Reversion
+- [x] Strategy 4: Mean Reversion ✅
 - [ ] Strategy 5: Correlation Play
 - [ ] Order execution simulation
 - [ ] Position management
@@ -545,10 +610,10 @@
 
 ## 📈 Statistics
 
-- **Total Iterations Completed:** 7
-- **Total Files Created:** 57+
-- **Total Lines of Code:** ~9,100
-- **Estimated Project Completion:** 68%
+- **Total Iterations Completed:** 8
+- **Total Files Created:** 58+
+- **Total Lines of Code:** ~9,400
+- **Estimated Project Completion:** 72%
 
 ---
 

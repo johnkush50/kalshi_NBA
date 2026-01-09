@@ -309,3 +309,37 @@ async def get_strategy_performance(strategy_id: str):
         "signals_generated": len(strategy.get_signal_history()),
         "message": "Full performance metrics will be available after order execution is implemented"
     }
+
+
+@router.post("/{strategy_id}/simulate-pregame")
+async def simulate_pregame_prices(
+    strategy_id: str, 
+    game_id: str,
+    prices: Dict[str, float]
+):
+    """
+    Simulate pre-game prices for mean reversion strategy testing.
+    
+    This allows testing mean reversion without waiting for a real game to go live.
+    
+    Body: {"KXNBAGAME-26JAN08DALUTA-UTA": 35.0, "KXNBAGAME-26JAN08DALUTA-DAL": 65.0}
+    """
+    engine = get_strategy_engine()
+    strategy = engine.get_strategy(strategy_id)
+    
+    if not strategy:
+        raise HTTPException(status_code=404, detail=f"Strategy not found: {strategy_id}")
+    
+    if not hasattr(strategy, 'simulate_pregame_prices'):
+        raise HTTPException(
+            status_code=400, 
+            detail="This strategy doesn't support pre-game price simulation"
+        )
+    
+    strategy.simulate_pregame_prices(game_id, prices)
+    
+    return {
+        "status": "simulated",
+        "game_id": game_id,
+        "prices_set": len(prices)
+    }

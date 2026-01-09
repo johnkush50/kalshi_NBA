@@ -895,6 +895,101 @@ Generated signals include rich metadata:
 
 ---
 
+## ✅ Live Mean Reversion Strategy (Iteration 8)
+
+**File:** `backend/strategies/mean_reversion.py`  
+**Status:** ✅ Complete
+
+### Strategy Concept
+
+During live NBA games, odds often overreact to scoring runs, foul trouble, or momentum shifts. This strategy detects when odds have moved significantly from their pre-game levels and bets on mean reversion back toward the original odds.
+
+**Example Scenario:**
+- Pre-game: Lakers @ 60% to win
+- Live (Q2): Lakers down 10, odds drop to 40%
+- Strategy detects 20% swing → BUY YES Lakers (expect reversion)
+
+The idea: Short-term game events cause overreaction. Unless fundamentally game-changing (key injury, blowout), odds tend to revert.
+
+### How It Works
+
+1. **Store Pre-Game Prices** - When a game first goes live, store current prices as baseline
+2. **Compare to Current** - Calculate swing = current_price - pregame_price
+3. **Check Tradeable Range** - Swing must be between min and max thresholds
+4. **Bet on Reversion** - If price dropped, BUY YES (expect recovery). If increased, BUY NO.
+5. **Time Check** - Only trade when enough game time remains for reversion
+
+### Configuration Parameters
+
+```python
+{
+    "min_reversion_percent": 15.0,    # Min % swing to trigger (default: 15%)
+    "max_reversion_percent": 40.0,    # Max % swing (beyond = real shift)
+    "min_time_remaining_pct": 25.0,   # Min % of game remaining
+    "position_size": 10,              # Contracts per trade
+    "cooldown_minutes": 10,           # Longer cooldown for live trades
+    "only_first_half": True,          # Only trade in Q1/Q2 for NBA
+    "market_types": ["moneyline"],    # Which markets to trade
+    "max_score_deficit": 20           # Don't trade if blowout (>20 pt deficit)
+}
+```
+
+### Code Examples
+
+**Loading the Strategy:**
+```python
+from backend.engine.strategy_engine import get_strategy_engine
+
+engine = get_strategy_engine()
+
+strategy = await engine.load_strategy(
+    strategy_type="mean_reversion",
+    config={
+        "min_reversion_percent": 10.0,
+        "only_first_half": False
+    },
+    enable=True
+)
+```
+
+**Simulating Pre-Game Prices (for testing):**
+```python
+# Via API endpoint
+POST /api/strategies/{strategy_id}/simulate-pregame?game_id=<UUID>
+Body: {"KXNBAGAME-26JAN08DALUTA-DAL": 65.0, "KXNBAGAME-26JAN08DALUTA-UTA": 35.0}
+```
+
+**Testing via CLI:**
+```bash
+python scripts/test_strategy.py --test-mean-reversion --game-id <UUID>
+```
+
+### Signal Metadata
+
+Generated signals include:
+```python
+{
+    "pregame_price": 60.0,
+    "current_price": 45.0,
+    "swing_percent": 15.0,
+    "swing_direction": "down",
+    "entry_price": 46.0,
+    "period": 2,
+    "score_home": 42,
+    "score_away": 52
+}
+```
+
+### Important Notes
+
+1. **Live Games Only** - Strategy only activates when `game_state.phase == LIVE`
+2. **Pre-Game Price Storage** - Prices are stored in memory; lost on server restart
+3. **First Half Preferred** - Mean reversion is most reliable early in games
+4. **Blowout Protection** - `max_score_deficit` prevents trading when odds shift is legitimate
+5. **Testing Mode** - Use `simulate_pregame_prices()` to test without waiting for live games
+
+---
+
 ## ❌ Not Yet Implemented
 
 ### Backend Infrastructure
@@ -928,14 +1023,14 @@ Generated signals include rich metadata:
 
 ### Trading Engine
 **Priority:** High  
-**Status:** Partially Complete (Iteration 7)
+**Status:** Partially Complete (Iteration 8)
 
 - ✅ Strategy base class
 - ✅ Sharp Line Detection strategy
 - ✅ Strategy execution engine
 - ✅ Momentum Scalping strategy
 - ✅ EV Multi-Book Arbitrage strategy
-- ❌ Mean Reversion strategy
+- ✅ Mean Reversion strategy
 - ❌ Correlation Play strategy
 - ❌ Order execution simulator
 - ❌ Position manager
