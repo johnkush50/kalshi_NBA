@@ -1,7 +1,7 @@
 # System Architecture - Current State
 
-**Last Updated:** January 9, 2026
-**Project Phase:** Phase 4 - Execution Engine (Iteration 12 Complete)
+**Last Updated:** January 15, 2026
+**Project Phase:** Phase 5 - Frontend UI (Iteration 14 Complete)
 
 ---
 
@@ -1562,6 +1562,312 @@ REJECTED  APPROVED
 
 ---
 
+## ✅ Frontend Dashboard (Iteration 14)
+
+**Location:** `frontend/`
+**Status:** ✅ Static UI Complete (Awaiting Backend Integration)
+
+### Architecture Overview
+
+```
+frontend/
+├── src/
+│   ├── main.tsx                      # Application entry point
+│   ├── App.tsx                       # Router setup (React Router v6)
+│   ├── index.css                     # Global styles + Tailwind
+│   ├── data/
+│   │   └── mockData.ts               # All hardcoded mock data
+│   ├── components/
+│   │   ├── layout/
+│   │   │   ├── Layout.tsx            # Main layout wrapper
+│   │   │   ├── Header.tsx            # Top bar with status/stats
+│   │   │   └── Sidebar.tsx           # Navigation menu
+│   │   └── ui/
+│   │       ├── Panel.tsx             # Card container with neon border
+│   │       ├── Button.tsx            # Button with variants
+│   │       └── Badge.tsx             # Status badges
+│   └── pages/
+│       ├── GamesPage.tsx             # Game management (/)
+│       ├── StrategiesPage.tsx        # Strategy control (/strategies)
+│       ├── TradingPage.tsx           # Positions & orders (/trading)
+│       ├── PnLPage.tsx               # Portfolio P&L (/pnl)
+│       └── RiskPage.tsx              # Risk management (/risk)
+├── public/
+│   └── vite.svg                      # Favicon
+├── package.json
+├── vite.config.ts
+├── tailwind.config.js
+├── tsconfig.json
+├── README.md
+└── FRONTEND_API_INTEGRATION.md       # Backend integration guide
+```
+
+### Tech Stack
+
+- **Framework:** React 18
+- **Build Tool:** Vite
+- **Language:** TypeScript
+- **Styling:** Tailwind CSS
+- **Routing:** React Router v6
+- **Icons:** Lucide React
+- **State Management:** Zustand (to be added)
+
+### Design System: Cyberpunk Trading Terminal
+
+**Color Palette:**
+```css
+--terminal-bg: #0a0e17;      /* Deep space black */
+--terminal-surface: #111827;  /* Panel background */
+--neon-cyan: #00f0ff;         /* Primary accent */
+--neon-green: #00ff88;        /* Profit/success */
+--neon-red: #ff3366;          /* Loss/danger */
+--neon-yellow: #ffcc00;       /* Warning */
+```
+
+**Typography:**
+- Display: `Orbitron` - Geometric, futuristic headers
+- Data: `JetBrains Mono` - Crisp monospace for numbers
+- UI: `Outfit` - Clean geometric sans for navigation
+
+**Effects:**
+- Neon glow borders on focused elements
+- Subtle grid pattern background
+- Pulsing indicators for live data
+- Color-coded P&L (green/red)
+
+### Page Structure
+
+#### Games Page (`/`)
+- Active games list with expandable market tables
+- Browse available games by date
+- Place orders (Buy Yes/No buttons)
+- Consensus odds from sportsbooks
+
+#### Strategies Page (`/strategies`)
+- Strategy cards with enable/disable toggle
+- Expandable JSON configuration
+- Live signals feed with confidence scores
+
+#### Trading Page (`/trading`)
+- Open positions table with unrealized P&L
+- Order history with status badges
+- Close position buttons
+
+#### P&L Page (`/pnl`)
+- Summary cards (Total, Unrealized, Realized P&L)
+- Win rate and profit factor metrics
+- Position breakdown table
+
+#### Risk Page (`/risk`)
+- Risk enabled/disabled toggle
+- Progress bars for limit usage
+- Loss streak counter
+- All 12 risk limits configuration
+
+### Running the Frontend
+
+```bash
+cd frontend
+npm install
+npm run dev
+# Open http://localhost:3000
+```
+
+### Integration Guide
+
+See `frontend/FRONTEND_API_INTEGRATION.md` for:
+- API endpoint mapping by page
+- WebSocket channel subscriptions
+- Zustand store structure
+- API client setup code
+
+### Key Components
+
+1. **Header**
+   - Connection status indicators (API, WS, Kalshi)
+   - Total P&L with color coding
+   - Position count, orders today
+
+2. **Sidebar**
+   - Navigation links with active state
+   - Icons and descriptions
+
+3. **Panel**
+   - Reusable card container
+   - Neon border variants
+   - Corner accent decorations
+
+4. **Button**
+   - Variants: primary, secondary, success, danger, ghost
+   - Sizes: sm, md, lg
+
+5. **Badge**
+   - Variants: default, success, danger, warning, info
+   - Optional pulse animation
+
+### Mock Data Structure
+
+All mock data is centralized in `src/data/mockData.ts`:
+
+```typescript
+// Games
+activeGames: ActiveGame[]      // Currently loaded games
+availableGames: AvailableGame[] // Games to browse/load
+
+// Strategies
+strategies: Strategy[]         // Loaded strategy instances
+recentSignals: Signal[]        // Trading signals
+
+// Trading
+openPositions: Position[]      // Current positions
+orderHistory: Order[]          // Order log
+
+// P&L
+pnlSummary: PnLSummary        // Portfolio totals
+
+// Risk
+riskStatus: RiskStatus        // Current risk state
+riskLimits: RiskLimit[]       // All 12 limits
+```
+
+4. **SignalsLog**
+   - Timestamp
+   - Strategy name
+   - Market ticker
+   - Signal side and quantity
+   - Confidence score
+   - Execution status
+
+5. **PnLSummary**
+   - Total cost basis
+   - Unrealized P&L
+   - Realized P&L
+   - Total P&L
+   - Win rate
+
+6. **RiskStatus**
+   - Daily loss limit usage
+   - Position limit usage
+   - Orders today count
+   - Loss streak status
+   - Cooldown indicator
+
+### API Integration (Planned)
+
+```typescript
+// API client setup
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+
+// Example API calls
+const fetchStrategies = () => fetch(`${API_BASE}/api/strategies/`);
+const fetchPositions = () => fetch(`${API_BASE}/api/execution/positions/open`);
+const fetchPnL = () => fetch(`${API_BASE}/api/execution/pnl`);
+const fetchRiskStatus = () => fetch(`${API_BASE}/api/risk/status`);
+```
+
+### WebSocket Integration (Planned)
+
+```typescript
+// WebSocket connection
+const ws = new WebSocket('ws://localhost:8000/ws?channels=all');
+
+ws.onmessage = (event) => {
+  const data = JSON.parse(event.data);
+
+  switch(data.type) {
+    case 'orderbook_update':
+      // Update market prices
+      break;
+    case 'signal':
+      // Add new signal to log
+      break;
+    case 'order':
+      // Update positions
+      break;
+    case 'pnl_update':
+      // Refresh P&L
+      break;
+  }
+};
+```
+
+### Running the Frontend
+
+```bash
+cd frontend
+npm install
+npm run dev
+# Open http://localhost:3000
+```
+
+---
+
+## 🔌 Complete API Reference
+
+### Games & Aggregator
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/aggregator/states` | GET | List all active game states |
+| `/api/aggregator/state/{game_id}` | GET | Get unified state for a specific game |
+| `/api/games/available?date=YYYY-MM-DD` | GET | List available NBA games for a date |
+| `/api/aggregator/load/{game_id}` | POST | Load a game into the aggregator |
+| `/api/aggregator/unload/{game_id}` | POST | Stop tracking a game |
+
+### Strategies
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/strategies/types` | GET | List available strategy types |
+| `/api/strategies/` | GET | List all loaded strategies |
+| `/api/strategies/load` | POST | Load a new strategy instance |
+| `/api/strategies/{id}/enable` | POST | Enable a strategy |
+| `/api/strategies/{id}/disable` | POST | Disable a strategy |
+
+### Execution
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/execution/stats` | GET | Get execution engine statistics |
+| `/api/execution/orders` | GET | Get recent orders |
+| `/api/execution/positions` | GET | Get all positions |
+| `/api/execution/positions/open` | GET | Get open positions only |
+| `/api/execution/execute/manual` | POST | Place a manual order |
+
+### P&L
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/execution/pnl` | GET | Get portfolio P&L summary |
+| `/api/execution/pnl/refresh` | POST | Refresh unrealized P&L from market prices |
+| `/api/execution/positions/{ticker}/close` | POST | Close a position |
+| `/api/execution/performance` | GET | Get trading performance metrics |
+
+### Risk Management
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/risk/status` | GET | Get current risk status |
+| `/api/risk/limits` | GET | Get all risk limit values |
+| `/api/risk/limits` | PUT | Set a specific risk limit |
+| `/api/risk/enable` | POST | Enable risk management |
+| `/api/risk/disable` | POST | Disable risk management |
+
+### WebSocket
+
+| Endpoint | Description |
+|----------|-------------|
+| `ws://localhost:8000/ws?channels=all` | Real-time updates for all channels |
+
+**Available WebSocket Channels:**
+- `orderbook` - Market price updates
+- `nba` - NBA game score updates
+- `signals` - Trading signal notifications
+- `orders` - Order execution updates
+- `positions` - Position changes
+
+---
+
 ## ❌ Not Yet Implemented
 
 ### Backend Infrastructure
@@ -1610,17 +1916,19 @@ REJECTED  APPROVED
 - ✅ Risk management system
 
 ### Frontend
-**Priority:** Medium  
-**Next Up:** Phase 4 (Week 4)
+**Priority:** Medium
+**Status:** Partially Complete (Static UI)
 
-- ❌ Next.js application
-- ❌ Dashboard UI
-- ❌ Strategy control cards
+- ✅ Next.js application
+- ✅ Dashboard UI (static)
+- ✅ Strategy control cards (static)
 - ❌ Live market data table
-- ❌ Position tracking table
+- ✅ Position tracking table (static)
 - ❌ Performance charts
-- ❌ Trade log viewer
-- ❌ WebSocket client
+- ✅ Trade log viewer (static)
+- ❌ WebSocket client integration
+- ❌ API client integration
+- ❌ State management (Zustand)
 
 ### Testing & Deployment
 **Priority:** Low  

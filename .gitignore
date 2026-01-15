@@ -74,3 +74,4 @@ dmypy.json
 # celery
 celerybeat-schedule
 celerybeat.pid
+node_modules
