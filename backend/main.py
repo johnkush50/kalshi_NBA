@@ -12,6 +12,7 @@ import logging
 from backend.config.settings import settings
 from backend.utils.logger import setup_logging
 from backend.api.routes import health, games, strategies, trading, aggregator, execution, risk
+from backend.api import websocket
 
 # Initialize logging
 setup_logging()
@@ -40,6 +41,7 @@ app.add_middleware(
     allow_origins=[
         settings.frontend_url,
         "http://localhost:3000",
+        "http://localhost:5173",  # Vite dev server
         "http://localhost:8000",
     ],
     allow_credentials=True,
@@ -99,6 +101,12 @@ app.include_router(
     risk.router,
     prefix="/api/risk",
     tags=["Risk Management"]
+)
+
+# WebSocket endpoint (no prefix - /ws at root)
+app.include_router(
+    websocket.router,
+    tags=["WebSocket"]
 )
 
 

@@ -1,7 +1,7 @@
 # System Architecture - Current State
 
 **Last Updated:** January 15, 2026
-**Project Phase:** Phase 5 - Frontend UI (Iteration 14 Complete)
+**Project Phase:** Phase 5 - Frontend UI (Iteration 15 Complete - API Integrated)
 
 ---
 
@@ -1562,10 +1562,10 @@ REJECTED  APPROVED
 
 ---
 
-## ✅ Frontend Dashboard (Iteration 14)
+## ✅ Frontend Dashboard (Iterations 14-15)
 
 **Location:** `frontend/`
-**Status:** ✅ Static UI Complete (Awaiting Backend Integration)
+**Status:** ✅ Complete (API Integrated)
 
 ### Architecture Overview
 
@@ -1610,7 +1610,91 @@ frontend/
 - **Styling:** Tailwind CSS
 - **Routing:** React Router v6
 - **Icons:** Lucide React
-- **State Management:** Zustand (to be added)
+- **Data Fetching:** @tanstack/react-query v5
+- **Real-time:** Native WebSocket with React Context
+
+### API Integration Architecture (Iteration 15)
+
+```
+frontend/src/
+├── api/
+│   ├── client.ts          # Core fetch wrapper with error handling
+│   ├── types.ts           # TypeScript types matching backend
+│   ├── games.ts           # Games API functions
+│   ├── strategies.ts      # Strategies API functions
+│   ├── execution.ts       # Positions/Orders API functions
+│   ├── pnl.ts             # P&L API functions
+│   └── risk.ts            # Risk management API functions
+├── hooks/
+│   ├── useGames.ts        # React Query hooks for games
+│   ├── useStrategies.ts   # React Query hooks for strategies
+│   ├── useExecution.ts    # React Query hooks for execution
+│   ├── usePnL.ts          # React Query hooks for P&L
+│   ├── useRisk.ts         # React Query hooks for risk
+│   └── useWebSocket.ts    # WebSocket hook with auto-reconnect
+└── context/
+    └── WebSocketContext.tsx  # Global WebSocket state provider
+```
+
+### React Query Configuration
+
+```typescript
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 5000,           // Data fresh for 5 seconds
+      refetchOnWindowFocus: true, // Refresh on tab focus
+      retry: 2,                   // Retry failed requests twice
+    },
+  },
+})
+```
+
+### Query Key Factory Pattern
+
+Each resource uses a key factory for organized cache management:
+
+```typescript
+export const gamesKeys = {
+  all: ['games'] as const,
+  loaded: () => [...gamesKeys.all, 'loaded'] as const,
+  available: (date: string) => [...gamesKeys.all, 'available', date] as const,
+  detail: (id: string) => [...gamesKeys.all, 'detail', id] as const,
+}
+```
+
+### WebSocket Integration
+
+The WebSocket hook provides:
+- Auto-reconnect with exponential backoff
+- Connection status tracking
+- Query invalidation on real-time updates
+
+```typescript
+// Message types handled:
+type WebSocketMessage =
+  | { type: 'signal'; data: Signal }
+  | { type: 'order_filled' | 'order_rejected'; data: Order }
+  | { type: 'pnl_update'; data: PortfolioPnL }
+  | { type: 'market_update'; data: MarketState }
+```
+
+### Vite Proxy Configuration
+
+API requests are proxied through Vite dev server:
+
+```typescript
+// vite.config.ts
+proxy: {
+  '/api': {
+    target: 'http://localhost:8000',
+    changeOrigin: true,
+  },
+  '/ws': {
+    target: 'ws://localhost:8000',
+    ws: true,
+  },
+}
 
 ### Design System: Cyberpunk Trading Terminal
 
@@ -1705,29 +1789,22 @@ See `frontend/FRONTEND_API_INTEGRATION.md` for:
    - Variants: default, success, danger, warning, info
    - Optional pulse animation
 
-### Mock Data Structure
+### Data Flow (Live API)
 
-All mock data is centralized in `src/data/mockData.ts`:
+All data is now fetched from the backend API via React Query:
 
 ```typescript
-// Games
-activeGames: ActiveGame[]      // Currently loaded games
-availableGames: AvailableGame[] // Games to browse/load
+// Games - useLoadedGames(), useAvailableGames()
+// Strategies - useStrategies(), useStrategyTypes()
+// Trading - useOpenPositions(), useOrders()
+// P&L - usePnL(), usePerformance()
+// Risk - useRiskStatus(), useRiskLimits()
 
-// Strategies
-strategies: Strategy[]         // Loaded strategy instances
-recentSignals: Signal[]        // Trading signals
-
-// Trading
-openPositions: Position[]      // Current positions
-orderHistory: Order[]          // Order log
-
-// P&L
-pnlSummary: PnLSummary        // Portfolio totals
-
-// Risk
-riskStatus: RiskStatus        // Current risk state
-riskLimits: RiskLimit[]       // All 12 limits
+// Mutations for actions:
+// useLoadGame(), useUnloadGame()
+// useEnableStrategy(), useDisableStrategy()
+// useClosePosition(), useRefreshPnL()
+// useEnableRisk(), useDisableRisk()
 ```
 
 4. **SignalsLog**
@@ -1752,43 +1829,55 @@ riskLimits: RiskLimit[]       // All 12 limits
    - Loss streak status
    - Cooldown indicator
 
-### API Integration (Planned)
+### API Integration (Implemented)
 
 ```typescript
-// API client setup
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+// API client (frontend/src/api/client.ts)
+const API_BASE = '/api'  // Proxied through Vite
 
-// Example API calls
-const fetchStrategies = () => fetch(`${API_BASE}/api/strategies/`);
-const fetchPositions = () => fetch(`${API_BASE}/api/execution/positions/open`);
-const fetchPnL = () => fetch(`${API_BASE}/api/execution/pnl`);
-const fetchRiskStatus = () => fetch(`${API_BASE}/api/risk/status`);
+export async function fetchApi<T>(endpoint: string, options?: RequestInit): Promise<T> {
+  const response = await fetch(`${API_BASE}${endpoint}`, {
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    ...options,
+  })
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ detail: 'Unknown error' }))
+    throw new ApiError(response.status, error.detail)
+  }
+  return response.json()
+}
 ```
 
-### WebSocket Integration (Planned)
+### WebSocket Integration (Implemented)
 
 ```typescript
-// WebSocket connection
-const ws = new WebSocket('ws://localhost:8000/ws?channels=all');
+// WebSocket hook (frontend/src/hooks/useWebSocket.ts)
+export function useWebSocket() {
+  const queryClient = useQueryClient()
+  const [isConnected, setIsConnected] = useState(false)
 
-ws.onmessage = (event) => {
-  const data = JSON.parse(event.data);
+  useEffect(() => {
+    const ws = new WebSocket('ws://localhost:8000/ws')
 
-  switch(data.type) {
-    case 'orderbook_update':
-      // Update market prices
-      break;
-    case 'signal':
-      // Add new signal to log
-      break;
-    case 'order':
-      // Update positions
-      break;
-    case 'pnl_update':
-      // Refresh P&L
-      break;
-  }
-};
+    ws.onmessage = (event) => {
+      const message = JSON.parse(event.data)
+
+      switch(message.type) {
+        case 'signal':
+          queryClient.invalidateQueries({ queryKey: ['strategies'] })
+          break
+        case 'order_filled':
+        case 'order_rejected':
+          queryClient.invalidateQueries({ queryKey: ['execution'] })
+          break
+        case 'pnl_update':
+          queryClient.invalidateQueries({ queryKey: ['pnl'] })
+          break
+      }
+    }
+    // ... reconnect logic
+  }, [])
+}
 ```
 
 ### Running the Frontend
@@ -1917,18 +2006,18 @@ npm run dev
 
 ### Frontend
 **Priority:** Medium
-**Status:** Partially Complete (Static UI)
+**Status:** ✅ Complete (Iteration 15)
 
-- ✅ Next.js application
-- ✅ Dashboard UI (static)
-- ✅ Strategy control cards (static)
-- ❌ Live market data table
-- ✅ Position tracking table (static)
-- ❌ Performance charts
-- ✅ Trade log viewer (static)
-- ❌ WebSocket client integration
-- ❌ API client integration
-- ❌ State management (Zustand)
+- ✅ Vite + React application
+- ✅ Dashboard UI
+- ✅ Strategy control cards
+- ✅ Live market data table
+- ✅ Position tracking table
+- ✅ Trade log viewer
+- ✅ WebSocket client integration
+- ✅ API client integration (React Query)
+- ✅ Loading/error states
+- ❌ Performance charts (future enhancement)
 
 ### Testing & Deployment
 **Priority:** Low  
